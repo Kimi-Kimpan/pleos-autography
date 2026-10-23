@@ -38,6 +38,11 @@ object AutoIcons {
         fill("M12 3a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z")
         stroke("M6 11a6 6 0 0 0 12 0M12 17v4", 2f)
     }
+    val Rewind = icon("Rewind") { stroke("M5 12a7 7 0 1 0 2-5M5 4v4h4", 2.2f) }
+    val Search = icon("Search") {
+        stroke("M17.5 11a6.5 6.5 0 1 1-13 0a6.5 6.5 0 1 1 13 0z", 2.4f)
+        stroke("M16 16l5 5", 2.4f)
+    }
     val Note = icon("Note") {
         stroke("M9 18V6l11-2v12", 2f)
         fill("M4 18a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0z M15 16a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0z")

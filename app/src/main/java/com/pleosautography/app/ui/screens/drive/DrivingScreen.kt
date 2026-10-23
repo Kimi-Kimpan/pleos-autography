@@ -32,16 +32,22 @@ private val CallHint = TextSpec(32f, FontWeight.Bold, GowunBatang, lineHeightPx 
 /**
  * 02 주행 중 홈. 시안: design/screens/Driving.png
  * 내비와 나란히 놓인 세로 창에 뜨면 06(NavToolbar) 화면이 된다.
+ * @param showMiniPlayer 가로 전체 창에서는 오른쪽에 라디오가 있으므로 미니 플레이어를 숨긴다.
  */
 @Composable
-fun DrivingScreen(onCallOto: () -> Unit, onOpenPlayer: () -> Unit, modifier: Modifier = Modifier) {
+fun DrivingScreen(
+    onCallOto: () -> Unit,
+    onOpenPlayer: () -> Unit,
+    modifier: Modifier = Modifier,
+    showMiniPlayer: Boolean = true,
+) {
     val chapter = DemoData.chapters.first { it.status == ChapterStatus.WRITING }
     Column(modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .padding(start = 40.px, top = 36.px, end = 40.px, bottom = 44.px),
+                .padding(start = 40.px, top = 36.px, end = 40.px, bottom = if (showMiniPlayer) 44.px else 56.px),
         ) {
             StatusChip("주행 중 · 말로 불러 주세요", filled = true)
             RuledText(
@@ -74,6 +80,6 @@ fun DrivingScreen(onCallOto: () -> Unit, onOpenPlayer: () -> Unit, modifier: Mod
                 )
             }
         }
-        MiniPlayer(DemoData.nowPlaying, onExpand = onOpenPlayer)
+        if (showMiniPlayer) MiniPlayer(DemoData.nowPlaying, onExpand = onOpenPlayer)
     }
 }

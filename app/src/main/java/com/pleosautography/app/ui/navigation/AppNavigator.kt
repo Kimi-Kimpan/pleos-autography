@@ -68,6 +68,9 @@ class AppNavigator(initial: List<Screen>) {
     }
 }
 
+/** @param start 처음 열 화면(디버그 실행). 저장된 상태가 있으면 무시한다. */
 @Composable
-fun rememberAppNavigator(): AppNavigator =
-    rememberSaveable(saver = AppNavigator.Saver) { AppNavigator(listOf(Screen.Main)) }
+fun rememberAppNavigator(start: Screen? = null): AppNavigator =
+    rememberSaveable(saver = AppNavigator.Saver) {
+        AppNavigator(listOf(Screen.Main)).apply { start?.let(::reset) }
+    }

@@ -37,6 +37,12 @@ object DemoData {
         title = "짐칸 가득, 하루치의 삶",
         meta = "이○○ 기사님 · 1톤 화물차 18년",
     )
+
+    /** 오토그래피 라디오: 지금 재생 중인 이야기와 다음으로 들을 이야기(주행 중에는 2편 고정). */
+    val radio = RadioDemo()
+
+    /** 내 자서전 요약. */
+    val book = BookDemo()
 }
 
 /** 주행 흐름(주행 홈 → 제안 → 인터뷰 → 도착 전 마무리)의 데모 값. */
@@ -48,4 +54,31 @@ data class DriveDemo(
     val followUpHint: String = "그날 아내분 이야기를\n조금 더 들려주시면 좋겠어요.",
     val pauseMinutesToArrival: Int = 9,
     val pauseQuestionNumber: Int = 6,
+)
+
+data class RadioEpisode(val title: String, val narrator: String, val tag: String)
+
+data class RadioDemo(
+    val nowPlayingLabel: String = "지금 재생 중 · 오토 목소리 낭독",
+    val title: String = "짐칸 가득, 하루치의 삶",
+    val narrator: String = "이○○ 기사님 · 1톤 화물차 18년 차",
+    val coverVolume: String = "VOL. 01 · 일과 생계",
+    val elapsed: String = "12:40",
+    val duration: String = "18:05",
+    val position: Float = 0.70f,
+    val genres: List<String> = listOf("전체", "택시", "화물 · 택배", "자영업", "장거리"),
+    val upNext: List<RadioEpisode> = listOf(
+        RadioEpisode("새벽 4시, 첫 손님", "김○○ 기사님 · 개인택시 22년 차", "택시"),
+        RadioEpisode("국경을 세 번 넘은 밤", "Marek K. 기사님 · 엑시언트 장거리 · 폴란드", "해외 · 번역"),
+    ),
+)
+
+data class BookDemo(
+    val storyCount: Int = 9,
+    val conversationCount: Int = 31,
+    val totalChapters: Int = 12,
+    val doneChapters: Int = 2,
+    val progress: Float = 0.18f,
+    val currentQuestion: Int = 4,
+    val currentQuestionTotal: Int = 7,
 )
