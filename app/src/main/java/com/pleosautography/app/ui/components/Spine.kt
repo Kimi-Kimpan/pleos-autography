@@ -3,6 +3,7 @@ package com.pleosautography.app.ui.components
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,23 +23,30 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import com.pleosautography.app.domain.DriveMode
 import com.pleosautography.app.ui.icons.AutoIcons
 import com.pleosautography.app.ui.theme.AutoColors
 import com.pleosautography.app.ui.theme.AutoType
 import com.pleosautography.app.ui.theme.DisabledAlpha
-import com.pleosautography.app.ui.theme.DriveMode
 import com.pleosautography.app.ui.theme.LocalDriveMode
 import com.pleosautography.app.ui.theme.px
 
 /**
  * 세로 앱 화면 왼쪽의 72px 책등 띠.
  * 위에는 자서전 제목을 세로로, 아래에는 ‘Autography’ 로고와 설정 버튼(주행 중 비활성)을 둔다.
+ * @param onLogoLongPress 디버그 빌드에서만: 로고를 길게 누르면 데모 패널을 연다.
  */
 @Composable
-fun Spine(bookTitle: String, onSettings: () -> Unit, modifier: Modifier = Modifier) {
+fun Spine(
+    bookTitle: String,
+    onSettings: () -> Unit,
+    modifier: Modifier = Modifier,
+    onLogoLongPress: (() -> Unit)? = null,
+) {
     Row(modifier.fillMaxHeight().width(72.px)) {
         Column(
             modifier = Modifier
@@ -57,7 +65,15 @@ fun Spine(bookTitle: String, onSettings: () -> Unit, modifier: Modifier = Modifi
                     text = "Autography",
                     style = AutoType.SpineLogo.style(),
                     softWrap = false,
-                    modifier = Modifier.rotatedClockwise(),
+                    modifier = Modifier
+                        .rotatedClockwise()
+                        .then(
+                            if (onLogoLongPress != null) {
+                                Modifier.pointerInput(onLogoLongPress) { detectTapGestures(onLongPress = { onLogoLongPress() }) }
+                            } else {
+                                Modifier
+                            },
+                        ),
                 )
                 SettingsButton(onSettings)
             }

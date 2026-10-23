@@ -17,6 +17,15 @@
     </queries>
 
     <application>
+        <!-- 디버그 빌드 전용: adb 데모 이벤트(주행/정차, 정체 15분, 도착 10분 전 등) -->
+        <receiver
+            android:name=".debug.DemoEventReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.pleosautography.app.DEMO_EVENT" />
+            </intent-filter>
+        </receiver>
+
         <activity
             android:name=".sdkcheck.VoiceCheckActivity"
             android:exported="true"

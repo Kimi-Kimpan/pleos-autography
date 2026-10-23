@@ -6,9 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
-
-/** 주행/정차 상태. 마일스톤 3에서 VehicleState가 이 값을 정한다. */
-enum class DriveMode { PARKED, DRIVING }
+import com.pleosautography.app.domain.DriveMode
 
 val LocalDriveMode = staticCompositionLocalOf { DriveMode.PARKED }
 

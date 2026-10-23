@@ -9,10 +9,18 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.pleosautography.app.data.demo.DemoData
+import com.pleosautography.app.domain.DriveMode
+import com.pleosautography.app.domain.demo.DemoEvent
 import com.pleosautography.app.ui.components.Spine
 import com.pleosautography.app.ui.components.VLine
+import com.pleosautography.app.ui.debug.DemoPanel
 import com.pleosautography.app.ui.navigation.AppNavigator
 import com.pleosautography.app.ui.navigation.PaneRole
 import com.pleosautography.app.ui.navigation.Screen
@@ -22,15 +30,14 @@ import com.pleosautography.app.ui.screens.PlaceholderScreen
 import com.pleosautography.app.ui.screens.drive.DrivingScreen
 import com.pleosautography.app.ui.screens.drive.InterviewScreen
 import com.pleosautography.app.ui.screens.drive.MyBookSidePane
-import com.pleosautography.app.ui.screens.drive.RadioSidePane
 import com.pleosautography.app.ui.screens.drive.NudgeScreen
 import com.pleosautography.app.ui.screens.drive.PauseScreen
+import com.pleosautography.app.ui.screens.drive.RadioSidePane
 import com.pleosautography.app.ui.screens.main.MainScreen
 import com.pleosautography.app.ui.theme.AutoColors
 import com.pleosautography.app.ui.theme.AutographyTheme
 import com.pleosautography.app.ui.theme.DemoOptions
 import com.pleosautography.app.ui.theme.DesignFrame
-import com.pleosautography.app.ui.theme.DriveMode
 import com.pleosautography.app.ui.theme.px
 
 /**
@@ -55,16 +62,23 @@ data class LaunchRequest(val id: Long = 0, val screen: Screen? = null, val demoO
  * - 가로 전체 창, 주행: 왼쪽은 마이크를 쓰는 화면 하나(주행 홈·제안·인터뷰), 오른쪽은 듣기·보기 전용 칸.
  *   인터뷰·원고 듣기 중이면 내 자서전, 그 밖에는 오토그래피 라디오. 마이크 화면이 두 개 열리지 않게 한다.
  * - 도착 전 마무리(Pause)는 책등 없이 창 전체를 덮는다.
+ *
+ * @param driveMode 차량 상태로 정한 주행/정차(AppGraph.driveMode).
+ * @param onDemoEvent 디버그 빌드에서만 준다. 책등의 ‘Autography’를 길게 누르면 데모 패널이 열린다.
  */
 @Composable
-fun AutographyApp(launch: LaunchRequest = LaunchRequest()) {
+fun AutographyApp(
+    driveMode: DriveMode,
+    launch: LaunchRequest = LaunchRequest(),
+    onDemoEvent: ((DemoEvent) -> Unit)? = null,
+) {
     // 시작 화면은 처음 스택에 바로 넣는다. 창 크기 변경으로 Activity가 다시 만들어져도 저장된 스택을 쓴다.
     val navigator = rememberAppNavigator(launch.screen)
     BackHandler(enabled = navigator.canGoBack) { navigator.back() }
     LaunchedEffect(launch.id) { launch.screen?.let(navigator::reset) }
-
-    // 마일스톤 3 전까지는 지금 화면이 주행 화면인지로 주행 상태를 정한다.
-    val driveMode = if (navigator.current.driving) DriveMode.DRIVING else DriveMode.PARKED
+    // 주행 상태가 바뀌거나 맞지 않는 화면이 열리면 그 상태의 홈으로 보낸다.
+    LaunchedEffect(driveMode, navigator.current) { navigator.syncWithDriveMode(driveMode) }
+    var demoPanelOpen by remember { mutableStateOf(false) }
 
     BoxWithConstraints(
         Modifier
@@ -78,32 +92,58 @@ fun AutographyApp(launch: LaunchRequest = LaunchRequest()) {
         AutographyTheme(designScale = scale, driveMode = driveMode, demoOptions = launch.demoOptions) {
             if (navigator.current == Screen.Pause) {
                 ScreenContent(Screen.Pause, navigator, Modifier.fillMaxSize())
-                return@AutographyTheme
+            } else {
+                AppPanes(
+                    navigator = navigator,
+                    driveMode = driveMode,
+                    twoPane = twoPane,
+                    onLogoLongPress = onDemoEvent?.let { { demoPanelOpen = !demoPanelOpen } },
+                )
             }
-            Row(Modifier.fillMaxSize()) {
-                Spine(DemoData.BOOK_TITLE, onSettings = { navigator.navigate(Screen.Settings) })
-                if (twoPane && driveMode == DriveMode.DRIVING) {
-                    val talking = navigator.current.takeIf { it.driving } ?: Screen.Driving
-                    ScreenContent(talking, navigator, Modifier.width(DRIVE_TALK_PANE_WIDTH.px), fullWindow = true)
-                    VLine(color = AutoColors.Ink)
-                    if (talking == Screen.Interview || talking == Screen.ListenDrive) {
-                        MyBookSidePane(Modifier.weight(1f))
-                    } else {
-                        RadioSidePane(Modifier.weight(1f))
-                    }
-                } else if (twoPane) {
-                    val detail = navigator.current.takeIf { it.role == PaneRole.DETAIL }
-                    ScreenContent(Screen.Main, navigator, Modifier.weight(1f))
-                    VLine(color = AutoColors.Ink)
-                    if (detail != null) {
-                        ScreenContent(detail, navigator, Modifier.weight(1f))
-                    } else {
-                        EmptyDetailPane(Modifier.weight(1f))
-                    }
-                } else {
-                    ScreenContent(navigator.current, navigator, Modifier.weight(1f))
-                }
+            if (onDemoEvent != null && demoPanelOpen) {
+                DemoPanel(
+                    onEvent = onDemoEvent,
+                    onClose = { demoPanelOpen = false },
+                    modifier = Modifier.align(Alignment.BottomStart),
+                )
             }
+        }
+    }
+}
+
+@Composable
+private fun AppPanes(
+    navigator: AppNavigator,
+    driveMode: DriveMode,
+    twoPane: Boolean,
+    onLogoLongPress: (() -> Unit)?,
+) {
+    Row(Modifier.fillMaxSize()) {
+        Spine(
+            bookTitle = DemoData.BOOK_TITLE,
+            onSettings = { navigator.navigate(Screen.Settings) },
+            onLogoLongPress = onLogoLongPress,
+        )
+        if (twoPane && driveMode == DriveMode.DRIVING) {
+            val talking = navigator.current.takeIf { it.driving } ?: Screen.Driving
+            ScreenContent(talking, navigator, Modifier.width(DRIVE_TALK_PANE_WIDTH.px), fullWindow = true)
+            VLine(color = AutoColors.Ink)
+            if (talking == Screen.Interview || talking == Screen.ListenDrive) {
+                MyBookSidePane(Modifier.weight(1f))
+            } else {
+                RadioSidePane(Modifier.weight(1f))
+            }
+        } else if (twoPane) {
+            val detail = navigator.current.takeIf { it.role == PaneRole.DETAIL }
+            ScreenContent(Screen.Main, navigator, Modifier.weight(1f))
+            VLine(color = AutoColors.Ink)
+            if (detail != null) {
+                ScreenContent(detail, navigator, Modifier.weight(1f))
+            } else {
+                EmptyDetailPane(Modifier.weight(1f))
+            }
+        } else {
+            ScreenContent(navigator.current, navigator, Modifier.weight(1f))
         }
     }
 }
@@ -130,7 +170,8 @@ private fun ScreenContent(
             showMiniPlayer = !fullWindow,
         )
         Screen.Interview -> InterviewScreen(
-            onStopHere = { navigator.navigate(Screen.Driving) },
+            // 정차 중에 시작한 인터뷰라면 Main으로, 주행 중이면 주행 홈으로 돌아간다.
+            onStopHere = { navigator.navigate(if (navigator.backStack.contains(Screen.Main)) Screen.Main else Screen.Driving) },
             modifier = modifier,
         )
         Screen.Nudge -> NudgeScreen(

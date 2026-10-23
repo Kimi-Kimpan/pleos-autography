@@ -136,7 +136,11 @@
 - 빌드 확인: `./gradlew assembleDebug`, 단위 테스트: `./gradlew test`
 - 디버그 빌드는 adb로 화면을 바로 연다(시안 비교 스크린샷용):
   `adb shell am start -n com.pleosautography.app/.MainActivity --es screen Nudge --ez timers false`
-  - `screen`: `Screen` 이름, `timers false`: 링 타이머 멈춤
+  - `screen`: `Screen` 이름(주행 중 화면이면 데모 주행 상태도 D단으로 넣는다), `timers false`: 링 타이머 멈춤, `drive drive|park|real`: 데모 주행 상태
+- 데모 이벤트(디버그 빌드): 책등의 ‘Autography’를 길게 누르면 데모 패널이 열린다. 영상에 패널이 보이지 않게 하려면 adb로 보낸다.
+  `adb shell am broadcast -a com.pleosautography.app.DEMO_EVENT -p com.pleosautography.app --es event drive`
+  - `drive`(D·40km/h), `park`(P), `real`(실제 차량 값으로 돌아가기), M6: `congestion15`, `straight15`, `complex_start`, `complex_end`, `arrival10`
+- 주행/정차: `domain/DriveModeRule`(P단이고 멈췄을 때만 정차, 기어를 모르거나 주행 제한이면 주행). 출발하면 주행 홈으로, P단이 되면 주행 전용 화면(주행 홈·제안·마무리)을 닫고 Main으로 간다. 인터뷰는 정차 중에도 이어 간다.
 - 시안 비교 이미지는 `captures/<마일스톤>/`에 둔다(저장소 제외).
 
 ## 마일스톤 (권장 순서)

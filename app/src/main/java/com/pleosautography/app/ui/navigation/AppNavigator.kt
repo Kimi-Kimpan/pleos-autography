@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
+import com.pleosautography.app.domain.DriveMode
 
 /** 화면이 2단 배치에서 어디에 놓이는지. */
 enum class PaneRole {
@@ -16,16 +17,22 @@ enum class PaneRole {
 
 /**
  * docs/screens.md의 화면. 06(NavToolbar)은 내비 옆 세로 창에 뜬 Driving이라 따로 두지 않는다.
- * @param driving 주행 중 화면인지(마일스톤 3 전까지는 이 값으로 주행 상태를 정한다).
+ * @param driving 주행 중에도 열 수 있는 화면인지(정차 중에는 모든 화면을 연다).
+ * @param drivingOnly 주행 중에만 의미가 있는 화면인지. 정차하면 닫는다.
  */
-enum class Screen(val label: String, val role: PaneRole = PaneRole.DETAIL, val driving: Boolean = false) {
+enum class Screen(
+    val label: String,
+    val role: PaneRole = PaneRole.DETAIL,
+    val driving: Boolean = false,
+    val drivingOnly: Boolean = false,
+) {
     Main("01 홈 · 챕터 목록", PaneRole.HOME),
-    Driving("02 주행 중 홈", PaneRole.HOME, driving = true),
+    Driving("02 주행 중 홈", PaneRole.HOME, driving = true, drivingOnly = true),
     Player("03 오토그래피 라디오"),
     Interview("04 음성 인터뷰", driving = true),
     Script("05 원고 보기"),
-    Nudge("07 정체 감지 제안", driving = true),
-    Pause("08 도착 전 마무리", driving = true),
+    Nudge("07 정체 감지 제안", driving = true, drivingOnly = true),
+    Pause("08 도착 전 마무리", driving = true, drivingOnly = true),
     ListenDrive("09 원고 듣기·고치기", driving = true),
     Complete("10 챕터 완성"),
     Onboarding("11-1 첫 실행 · 부르는 이름"),
@@ -54,6 +61,18 @@ class AppNavigator(initial: List<Screen>) {
         backStack.clear()
         if (screen.role != PaneRole.HOME) backStack.add(if (screen.driving) Screen.Driving else Screen.Main)
         backStack.add(screen)
+    }
+
+    /**
+     * 지금 화면이 주행 상태와 맞지 않으면 그 상태의 홈으로 보낸다.
+     * 주행 중에는 주행 중에 열 수 있는 화면만 두고(출발 → 주행 홈),
+     * 정차하면 주행 전용 화면(주행 홈·제안·마무리)을 닫는다(기어 P → Main). 인터뷰는 정차 중에도 이어 갈 수 있다.
+     */
+    fun syncWithDriveMode(mode: DriveMode) {
+        when {
+            mode == DriveMode.DRIVING && !current.driving -> reset(Screen.Driving)
+            mode == DriveMode.PARKED && current.drivingOnly -> reset(Screen.Main)
+        }
     }
 
     fun back() {

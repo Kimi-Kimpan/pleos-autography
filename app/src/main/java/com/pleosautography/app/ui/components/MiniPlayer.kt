@@ -17,10 +17,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import com.pleosautography.app.data.demo.NowPlaying
+import com.pleosautography.app.domain.DriveMode
 import com.pleosautography.app.ui.icons.AutoIcons
 import com.pleosautography.app.ui.theme.AutoColors
 import com.pleosautography.app.ui.theme.AutoType
-import com.pleosautography.app.ui.theme.DriveMode
 import com.pleosautography.app.ui.theme.LocalDriveMode
 import com.pleosautography.app.ui.theme.TextSpec
 import com.pleosautography.app.ui.theme.px
