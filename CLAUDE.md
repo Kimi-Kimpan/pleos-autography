@@ -99,7 +99,7 @@
   - 위에는 자서전 제목을 세로로 쓴다.
   - 아래에는 ‘Autography’ 로고와 설정 버튼을 둔다. 설정 버튼은 주행 중 비활성이다.
 - ‘여기까지’ 버튼: 클립 아이콘이 들어간 아웃라인 알약 버튼(저장의 의미)이다.
-- 주행 중 마이크: 큰 파란 원 + 은은한 후광 + 맥동 링이다. 인터뷰 화면은 이미 듣는 중이라 마이크 대신 음성 파형을 보여 준다.
+- 주행 중 마이크: 큰 파란 원 + 은은한 후광이다(움직이는 효과 없음). 인터뷰 화면은 이미 듣는 중이라 마이크 대신 음성 파형을 보여 준다.
 - 정보는 1~2초 안에 읽혀야 한다(Pleos 디자인 가이드). 명도 대비는 4.5:1 이상이다. 주행 중에는 자동 애니메이션과 영상을 최소화한다.
 
 ## 화면 배치 (Pleos 앱 영역)
@@ -130,8 +130,8 @@
 - SDK 동작이 불확실하면 Fake 구현으로 먼저 흐름을 완성한 뒤 Pleos 구현체를 붙인다.
 - 빌드 확인: `./gradlew assembleDebug`, 단위 테스트: `./gradlew test`
 - 디버그 빌드는 adb로 화면을 바로 연다(시안 비교 스크린샷용):
-  `adb shell am start -n com.pleosautography.app/.MainActivity --es screen Nudge --ez timers false --ez micPulse true`
-  - `screen`: `Screen` 이름, `timers false`: 링 타이머 멈춤, `micPulse true`: 주행 중 마이크 맥동 링 켜기(시연용, 기본 꺼짐)
+  `adb shell am start -n com.pleosautography.app/.MainActivity --es screen Nudge --ez timers false`
+  - `screen`: `Screen` 이름, `timers false`: 링 타이머 멈춤
 - 시안 비교 이미지는 `captures/<마일스톤>/`에 둔다(저장소 제외).
 
 ## 마일스톤 (권장 순서)

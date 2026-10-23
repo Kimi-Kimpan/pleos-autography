@@ -30,14 +30,13 @@ class MainActivity : ComponentActivity() {
 
     /**
      * 디버그 빌드 전용: adb로 화면과 시연 설정을 바로 연다.
-     * 예) adb shell am start -n com.pleosautography.app/.MainActivity --es screen Nudge --ez timers false --ez micPulse true
+     * 예) adb shell am start -n com.pleosautography.app/.MainActivity --es screen Nudge --ez timers false
      */
     private fun readLaunchRequest(intent: Intent): LaunchRequest {
         val debuggable = (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
         if (!debuggable) return LaunchRequest()
         val screen = intent.getStringExtra("screen")?.let { name -> Screen.entries.firstOrNull { it.name == name } }
         val options = DemoOptions(
-            micPulseWhileDriving = intent.getBooleanExtra("micPulse", false),
             timersRunning = intent.getBooleanExtra("timers", true),
         )
         return LaunchRequest(id = System.nanoTime(), screen = screen, demoOptions = options)

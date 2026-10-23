@@ -10,9 +10,7 @@ body{margin:0}
 .think svg{animation:wiggle 1.4s ease-in-out infinite}
 @keyframes wiggle{0%{transform:translateX(0) scaleY(1)}50%{transform:translateX(-10px) scaleY(.55)}100%{transform:translateX(0) scaleY(1)}}
 .mic{position:relative;width:140px;height:140px;flex:none;border-radius:70px;background:#1a0bd0;box-shadow:0 0 0 26px rgba(26,11,208,.10);display:flex;align-items:center;justify-content:center}
-.mic::before{content:"";position:absolute;inset:-5px;border-radius:75px;border:5px solid rgba(26,11,208,.22);animation:pulse 2.2s ease-out infinite}
-@keyframes pulse{0%{transform:scale(1);opacity:1}100%{transform:scale(1.35);opacity:0}}
-@media (prefers-reduced-motion:reduce){.think svg,.mic::before{animation:none}}
+@media (prefers-reduced-motion:reduce){.think svg{animation:none}}
 </style></head><body style='margin:0'>
 <div style="width:960px;height:1280px;box-sizing:border-box;background:#efefef;font-family:'Asta Sans','Noto Sans KR',sans-serif;color:#1a0bd0;display:grid;grid-template-columns:72px minmax(0,1fr);overflow:hidden">
 

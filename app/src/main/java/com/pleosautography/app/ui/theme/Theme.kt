@@ -14,12 +14,10 @@ val LocalDriveMode = staticCompositionLocalOf { DriveMode.PARKED }
 
 /**
  * 시연용 설정.
- * @param micPulseWhileDriving 주행 중 큰 마이크의 맥동 링. 기본은 꺼짐(후광만 표시)이다.
  * @param timersRunning 링 타이머(제안 5초, 마무리 3초)가 흐르는지. 시안 비교 스크린샷을 찍을 때만 끈다.
  */
 @Immutable
 data class DemoOptions(
-    val micPulseWhileDriving: Boolean = false,
     val timersRunning: Boolean = true,
 )
 

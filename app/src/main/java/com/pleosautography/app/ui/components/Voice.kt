@@ -1,13 +1,8 @@
 package com.pleosautography.app.ui.components
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -45,41 +40,17 @@ import com.pleosautography.app.ui.theme.TextSpec
 import com.pleosautography.app.ui.theme.px
 import kotlin.math.ceil
 
-private val PulseRingColor = Color(0x381A0BD0) // rgba(26,11,208,.22)
-
 /**
- * 주행 홈의 큰 마이크: 220px 파란 원 + 40px 후광.
- * [pulse]가 켜져 있을 때만 맥동 링(2.2초, 1→1.35배, 페이드)을 그린다.
+ * 주행 홈의 큰 마이크: 220px 파란 원 + 40px 후광. 주행 중 자동 애니메이션을 줄이기 위해 움직이는 효과는 없다.
  */
 @Composable
-fun BigMicButton(pulse: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun BigMicButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
     val halo = 40.px
-    val ringInset = 6.px
-    val ringWidth = 6.px
-    val progress = if (pulse) {
-        val transition = rememberInfiniteTransition(label = "micPulse")
-        transition.animateFloat(
-            initialValue = 0f,
-            targetValue = 1f,
-            animationSpec = infiniteRepeatable(tween(2200, easing = FastOutSlowInEasing), RepeatMode.Restart),
-            label = "micPulseProgress",
-        ).value
-    } else {
-        null
-    }
     Box(
         modifier = modifier
             .size(220.px)
             .drawBehind {
                 drawCircle(AutoColors.MicHalo, radius = size.minDimension / 2 + halo.toPx())
-                if (progress != null) {
-                    val base = size.minDimension / 2 + ringInset.toPx() - ringWidth.toPx() / 2
-                    drawCircle(
-                        color = PulseRingColor.copy(alpha = PulseRingColor.alpha * (1f - progress)),
-                        radius = base * (1f + 0.35f * progress),
-                        style = Stroke(ringWidth.toPx()),
-                    )
-                }
             }
             .clip(CircleShape)
             .background(AutoColors.Ink)

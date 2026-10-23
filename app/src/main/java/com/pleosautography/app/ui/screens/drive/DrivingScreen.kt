@@ -21,10 +21,7 @@ import com.pleosautography.app.ui.components.RuledText
 import com.pleosautography.app.ui.components.SingleLine
 import com.pleosautography.app.ui.components.StatusChip
 import com.pleosautography.app.ui.theme.AutoColors
-import com.pleosautography.app.ui.theme.DriveMode
 import com.pleosautography.app.ui.theme.GowunBatang
-import com.pleosautography.app.ui.theme.LocalDemoOptions
-import com.pleosautography.app.ui.theme.LocalDriveMode
 import com.pleosautography.app.ui.theme.TextSpec
 import com.pleosautography.app.ui.theme.px
 
@@ -39,7 +36,6 @@ private val CallHint = TextSpec(32f, FontWeight.Bold, GowunBatang, lineHeightPx 
 @Composable
 fun DrivingScreen(onCallOto: () -> Unit, onOpenPlayer: () -> Unit, modifier: Modifier = Modifier) {
     val chapter = DemoData.chapters.first { it.status == ChapterStatus.WRITING }
-    val pulse = LocalDriveMode.current == DriveMode.PARKED || LocalDemoOptions.current.micPulseWhileDriving
     Column(modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -71,7 +67,7 @@ fun DrivingScreen(onCallOto: () -> Unit, onOpenPlayer: () -> Unit, modifier: Mod
                 horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.spacedBy(44.px),
             ) {
-                BigMicButton(pulse = pulse, onClick = onCallOto, modifier = Modifier.padding(end = 40.px))
+                BigMicButton(onClick = onCallOto, modifier = Modifier.padding(end = 40.px))
                 BasicText(
                     text = "챕터를 이어 쓰시려면\n“오토야, 뭐해?”라고 말씀해 주세요",
                     style = CallHint.style().copy(textAlign = TextAlign.End),
