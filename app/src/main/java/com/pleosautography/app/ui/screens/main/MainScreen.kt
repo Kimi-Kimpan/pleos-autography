@@ -35,6 +35,7 @@ import com.pleosautography.app.ui.components.RuledText
 import com.pleosautography.app.ui.components.StatusChip
 import com.pleosautography.app.ui.components.VLine
 import com.pleosautography.app.ui.icons.AutoIcons
+import com.pleosautography.app.ui.screens.live
 import com.pleosautography.app.ui.theme.AutoColors
 import com.pleosautography.app.ui.theme.AutoType
 import com.pleosautography.app.ui.theme.TextSpec
@@ -61,7 +62,7 @@ fun MainScreen(
     selectedAction: ChapterAction? = null,
     radioPaused: Boolean = false,
 ) {
-    val chapters = DemoData.chapters
+    val chapters = DemoData.chapters.map { it.live() }
     val writing = chapters.firstOrNull { it.status == ChapterStatus.WRITING }
     Column(modifier.fillMaxSize()) {
         if (showHeader) {

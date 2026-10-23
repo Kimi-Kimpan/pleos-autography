@@ -18,6 +18,7 @@ import androidx.compose.ui.text.style.TextAlign
 import com.pleosautography.app.data.demo.ChapterStatus
 import com.pleosautography.app.data.demo.ChapterSummary
 import com.pleosautography.app.data.demo.DemoData
+import com.pleosautography.app.domain.interview.InterviewPhase
 import com.pleosautography.app.ui.components.HLine
 import com.pleosautography.app.ui.components.PillButton
 import com.pleosautography.app.ui.components.ProgressBar
@@ -26,6 +27,9 @@ import com.pleosautography.app.ui.components.ScreenStatusChip
 import com.pleosautography.app.ui.components.StopHereButton
 import com.pleosautography.app.ui.components.VoiceWave
 import com.pleosautography.app.ui.icons.AutoIcons
+import com.pleosautography.app.ui.screens.LocalInterviewUi
+import com.pleosautography.app.ui.screens.LocalLiveProgress
+import com.pleosautography.app.ui.screens.live
 import com.pleosautography.app.ui.theme.AutoColors
 import com.pleosautography.app.ui.theme.GowunBatang
 import com.pleosautography.app.ui.theme.TextSpec
@@ -50,7 +54,7 @@ private val Hint = TextSpec(36f, FontWeight.Bold, GowunBatang, lineHeightPx = 54
  */
 @Composable
 fun InterviewScreen(onStopHere: () -> Unit, modifier: Modifier = Modifier, parkedPane: Boolean = false) {
-    val chapter = DemoData.chapters.first { it.status == ChapterStatus.WRITING }
+    val chapter = DemoData.chapters.first { it.status == ChapterStatus.WRITING }.live()
     if (parkedPane) {
         ParkedPaneInterview(chapter, onStopHere, modifier)
     } else {
@@ -74,7 +78,8 @@ private fun FullInterview(chapter: ChapterSummary, onStopHere: () -> Unit, modif
                     ScreenStatusChip("주행 중 · 인터뷰", filled = true, sizePx = 22f)
                     LocalDriveSituation.current.minutesToArrival?.let { BasicText("도착까지 ${it}분", style = Arrival.style()) }
                 }
-                BasicText("${chapter.number}장 ${chapter.title} · 질문 ${demo.questionNumber}", style = Title.style(), maxLines = 1)
+                val number = LocalInterviewUi.current.question?.order ?: LocalLiveProgress.current?.questionNumber ?: demo.questionNumber
+                BasicText("${chapter.number}장 ${chapter.title} · 질문 $number", style = Title.style(), maxLines = 1)
             }
             StopHereButton(onStopHere)
         }
@@ -124,7 +129,8 @@ private fun ParkedPaneInterview(chapter: ChapterSummary, onStopHere: () -> Unit,
 private fun QuestionBlock(modifier: Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(16.px)) {
         BasicText("오토가 물었어요", style = AskedLabel.style(AutoColors.InkSecondary))
-        RuledText(DemoData.drive.question, Question, Modifier.fillMaxWidth())
+        val question = LocalInterviewUi.current.question ?: LocalLiveProgress.current?.nextQuestion
+        RuledText(question?.text ?: DemoData.drive.question, Question, Modifier.fillMaxWidth())
     }
 }
 
@@ -135,8 +141,15 @@ private fun ListeningBlock(chapter: ChapterSummary, hintTopPx: Float, modifier: 
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(22.px, Alignment.CenterVertically),
     ) {
-        VoiceWave()
-        BasicText("듣고 있어요", style = Listening.style(AutoColors.InkSecondary))
+        val ui = LocalInterviewUi.current
+        // 듣는 동안에는 실제 마이크 음량으로 파형이 움직인다. 오토가 말하는 동안에는 낮게 둔다.
+        val level = when (ui.phase) {
+            InterviewPhase.LISTENING -> 0.2f + 0.8f * ui.level
+            InterviewPhase.IDLE -> 1f
+            else -> 0.2f
+        }
+        VoiceWave(levels = RestingShape.map { it * level })
+        BasicText(ui.phase.label(), style = Listening.style(AutoColors.InkSecondary))
         ProgressBar(
             progress = chapter.progress,
             heightPx = 16f,
@@ -149,10 +162,22 @@ private fun ListeningBlock(chapter: ChapterSummary, hintTopPx: Float, modifier: 
             BasicText("${(chapter.progress * 100).roundToInt()}%", style = Percent.style())
         }
         BasicText("‘${chapter.title}’가 채워지고 있어요", style = Filling.style())
+        // 받아 적은 직후에는 그 문장을, 그 밖에는 다음 이야기 힌트를 보인다.
+        val saved = ui.lastTranscript.takeIf { ui.phase == InterviewPhase.SAVED }
         BasicText(
-            text = DemoData.drive.followUpHint,
-            style = Hint.style(AutoColors.InkMuted).copy(textAlign = TextAlign.Center),
+            text = saved?.let { "“$it”" } ?: ui.question?.followUpHint ?: LocalLiveProgress.current?.nextQuestion?.followUpHint ?: DemoData.drive.followUpHint,
+            style = Hint.style(if (saved != null) AutoColors.Ink else AutoColors.InkMuted).copy(textAlign = TextAlign.Center),
             modifier = Modifier.padding(top = hintTopPx.px),
         )
     }
+}
+
+/** 시안의 막대 높이 비율(44~186px / 190). */
+private val RestingShape = listOf(44f, 92f, 150f, 96f, 186f, 140f, 170f, 86f, 120f, 48f).map { it / 190f }
+
+private fun InterviewPhase.label(): String = when (this) {
+    InterviewPhase.ASKING -> "오토가 묻고 있어요"
+    InterviewPhase.SAVED -> "받아 적었어요"
+    InterviewPhase.DONE -> "챕터를 다 채웠어요"
+    else -> "듣고 있어요"
 }

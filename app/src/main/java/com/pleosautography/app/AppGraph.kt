@@ -1,13 +1,23 @@
 package com.pleosautography.app
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import com.pleosautography.app.data.audio.ChimePlayer
+import com.pleosautography.app.data.audio.RadioAudio
+import com.pleosautography.app.data.db.AppDatabase
 import com.pleosautography.app.data.navi.FakeNaviState
+import com.pleosautography.app.data.repo.AutographyRepository
+import com.pleosautography.app.data.speech.CaptionSpeechOutput
+import com.pleosautography.app.data.speech.DemoScript
+import com.pleosautography.app.data.speech.FakeSpeechInput
+import com.pleosautography.app.data.speech.SpeechInput
+import com.pleosautography.app.data.speech.SpeechOutput
 import com.pleosautography.app.data.vehicle.CarApiVehicleState
 import com.pleosautography.app.data.vehicle.DemoVehicleState
 import com.pleosautography.app.domain.DriveMode
 import com.pleosautography.app.domain.DriveModeRule
 import com.pleosautography.app.domain.demo.DemoEvents
+import com.pleosautography.app.domain.interview.InterviewSession
 import com.pleosautography.app.domain.trigger.SituationController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -16,18 +26,32 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 /**
  * 앱 전체에서 하나만 쓰는 객체들(간단한 수동 의존성 주입).
  * 차량 연결은 앱 프로세스 동안 유지한다.
  */
 class AppGraph private constructor(context: Context) {
+    private val debuggable = (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     val carVehicle = CarApiVehicleState(context)
     val vehicle = DemoVehicleState(carVehicle, scope)
-    val demoEvents = DemoEvents(vehicle)
     val chime = ChimePlayer()
+    val radioAudio = RadioAudio(context)
+
+    // 저장소(기기 안 Room DB)와 질문 은행
+    private val database = AppDatabase.create(context)
+    val repository = AutographyRepository(database, context.assets)
+
+    // 음성: Pleos SpeechToText·TextToSpeech 승인 전까지 시연용 Fake(실제 마이크 음량 + 준비된 문장)
+    private val demoScript = DemoScript.load(context)
+    val speechInput: SpeechInput = FakeSpeechInput(context, demoScript)
+    val speechOutput: SpeechOutput = CaptionSpeechOutput()
+    val interview = InterviewSession(scope, repository, speechInput, speechOutput, radioAudio)
+
+    val demoEvents = DemoEvents(vehicle, speechInput)
 
     /** 경로 안내. Pleos NaviHelper 구현체는 마일스톤 8에서 붙이고, 그전에는 시연용 Fake를 쓴다. */
     val navi = FakeNaviState()
@@ -40,6 +64,11 @@ class AppGraph private constructor(context: Context) {
 
     init {
         carVehicle.start()
+        scope.launch {
+            repository.seedQuestionsIfNeeded()
+            // 시연용 예시 답변(디버그 빌드만): 첫 실행부터 ‘첫 차’ 3편이 있는 상태로 시작한다.
+            if (debuggable) repository.seedDemoAnswersIfEmpty(demoScript.seed)
+        }
     }
 
     companion object {

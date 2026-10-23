@@ -18,11 +18,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.pleosautography.app.data.audio.RadioPlayback
 import com.pleosautography.app.data.demo.DemoData
 import com.pleosautography.app.domain.DriveMode
 import com.pleosautography.app.domain.demo.DemoEvent
+import com.pleosautography.app.domain.interview.InterviewUi
+import com.pleosautography.app.domain.interview.VoiceCommand
 import com.pleosautography.app.domain.trigger.NudgeReason
-import com.pleosautography.app.domain.trigger.SituationController
 import com.pleosautography.app.domain.trigger.TriggerAction
 import com.pleosautography.app.ui.components.Spine
 import com.pleosautography.app.ui.components.StatusChip
@@ -32,6 +34,9 @@ import com.pleosautography.app.ui.navigation.AppNavigator
 import com.pleosautography.app.ui.navigation.PaneRole
 import com.pleosautography.app.ui.navigation.Screen
 import com.pleosautography.app.ui.navigation.rememberAppNavigator
+import com.pleosautography.app.ui.screens.LocalInterviewUi
+import com.pleosautography.app.ui.screens.LocalLiveProgress
+import com.pleosautography.app.ui.screens.LocalRadioPlayback
 import com.pleosautography.app.ui.screens.PlaceholderScreen
 import com.pleosautography.app.ui.screens.drive.DriveSituation
 import com.pleosautography.app.ui.screens.drive.DrivingScreen
@@ -58,6 +63,9 @@ import com.pleosautography.app.ui.theme.px
  */
 private const val TWO_PANE_MIN_WIDTH = 1400f
 
+/** 지금 쓰는 챕터(MVP 시연은 2장 ‘첫 차’). 마일스톤 4 이후 Book·Chapter 테이블에서 읽는다. */
+const val CURRENT_CHAPTER = 2
+
 /** 가로 전체 창 왼쪽 칸의 폭(시안 px, design/html/FullDrive.html·FullPark.html). */
 private const val FULL_LEFT_PANE_WIDTH = 888f
 
@@ -78,16 +86,14 @@ data class LaunchRequest(val id: Long = 0, val screen: Screen? = null, val demoO
  *
  * @param driveMode 차량 상태로 정한 주행/정차(AppGraph.driveMode).
  * @param onDemoEvent 디버그 빌드에서만 준다. 책등의 ‘Autography’를 길게 누르면 데모 패널이 열린다.
- * @param situation 정체·도착 등 상황 트리거. 결정에 따라 제안·미루기·마무리 화면을 연다.
- * @param playChime 오토가 먼저 말을 걸기 전에 울리는 알림 멜로디.
+ * @param services 상황 트리거·인터뷰·음성 입력·라디오(AppGraph). 결정과 음성 명령에 따라 화면을 바꾼다.
  */
 @Composable
 fun AutographyApp(
     driveMode: DriveMode,
     launch: LaunchRequest = LaunchRequest(),
     onDemoEvent: ((DemoEvent) -> Unit)? = null,
-    situation: SituationController? = null,
-    playChime: (suspend () -> Unit)? = null,
+    services: AppServices? = null,
 ) {
     // 시작 화면은 처음 스택에 바로 넣는다. 창 크기 변경으로 Activity가 다시 만들어져도 저장된 스택을 쓴다.
     val navigator = rememberAppNavigator(launch.screen)
@@ -96,6 +102,39 @@ fun AutographyApp(
     // 주행 상태가 바뀌거나 맞지 않는 화면이 열리면 그 상태의 홈으로 보낸다.
     LaunchedEffect(driveMode, navigator.current) { navigator.syncWithDriveMode(driveMode) }
     var demoPanelOpen by remember { mutableStateOf(false) }
+
+    val situation = services?.situation
+    var pendingIntro by remember { mutableStateOf<String?>(null) }
+
+    // 인터뷰는 인터뷰 화면이 열려 있는 동안만 돈다. 인터뷰·원고 듣기 중에는 다른 소리를 멈춘다.
+    val current = navigator.current
+    LaunchedEffect(current, services) {
+        services ?: return@LaunchedEffect
+        if (current == Screen.Interview) {
+            services.interview.start(chapter = CURRENT_CHAPTER, intro = pendingIntro)
+            pendingIntro = null
+        } else {
+            services.interview.stop()
+        }
+        services.setTalking(current == Screen.Interview || current == Screen.ListenDrive)
+    }
+    // “오토야, 잠깐만”: 저장은 이미 되어 있으니 주행 홈(정차 중 시작했다면 Main)으로 간다.
+    val stopInterview = { navigator.navigate(if (navigator.backStack.contains(Screen.Main)) Screen.Main else Screen.Driving) }
+    LaunchedEffect(services) { services?.interview?.stopRequests?.collect { stopInterview() } }
+    // 인터뷰 밖에서 들린 말을 명령으로 처리한다.
+    LaunchedEffect(services) {
+        services?.speechInput?.utterances?.collect { text ->
+            when (VoiceCommand.parse(text)) {
+                VoiceCommand.ACCEPT -> if (navigator.current == Screen.Nudge) navigator.reset(Screen.Interview)
+                VoiceCommand.STOP -> if (navigator.current == Screen.Interview) stopInterview()
+                VoiceCommand.WHATS_UP -> if (navigator.current.drivingOnly || navigator.current == Screen.Main) {
+                    pendingIntro = "‘첫 차’ 부분을 다듬고 있었어요. 여기에 대해 조금 더 이야기해 주시겠어요?"
+                    if (navigator.current == Screen.Main) navigator.openFromMain(Screen.Interview) else navigator.navigate(Screen.Interview)
+                }
+                else -> Unit
+            }
+        }
+    }
 
     // 상황 트리거: 지금 화면을 알리고, 결정을 화면 전환으로 옮긴다.
     LaunchedEffect(navigator.current, situation) {
@@ -109,7 +148,7 @@ fun AutographyApp(
             when (action) {
                 is TriggerAction.Nudge -> {
                     // 혼자 운전하던 사람이 놀라지 않게 멜로디를 먼저 울린다.
-                    playChime?.invoke()
+                    services?.playChime?.invoke()
                     navigator.navigate(Screen.Nudge)
                 }
                 TriggerAction.Defer -> navigator.navigate(Screen.Driving)
@@ -122,6 +161,9 @@ fun AutographyApp(
     val navi = situation?.navi?.collectAsState()?.value
     val nudgeReason = situation?.nudgeReason?.collectAsState()?.value
     val notice = situation?.notice?.collectAsState()?.value
+    val liveProgress = services?.currentChapter?.collectAsState(initial = null)?.value
+    val interviewUi = services?.interview?.ui?.collectAsState()?.value ?: InterviewUi()
+    val radio = services?.radio?.collectAsState()?.value ?: RadioPlayback()
     val driveSituation = DriveSituation(
         minutesToArrival = navi?.minutesToArrival ?: DemoData.drive.minutesToArrival,
         nudgeReason = nudgeReason ?: NudgeReason.CONGESTION,
@@ -138,7 +180,12 @@ fun AutographyApp(
         val twoPane = maxWidth.value / scale >= TWO_PANE_MIN_WIDTH
 
         AutographyTheme(designScale = scale, driveMode = driveMode, demoOptions = launch.demoOptions) {
-            CompositionLocalProvider(LocalDriveSituation provides driveSituation) {
+            CompositionLocalProvider(
+                LocalDriveSituation provides driveSituation,
+                LocalLiveProgress provides liveProgress,
+                LocalInterviewUi provides interviewUi,
+                LocalRadioPlayback provides radio,
+            ) {
                 if (navigator.current == Screen.Pause) {
                     ScreenContent(Screen.Pause, navigator, Modifier.fillMaxSize())
                 } else {
@@ -217,7 +264,7 @@ private fun ScreenContent(
             modifier = modifier,
             showHeader = !fullWindow,
             selectedAction = if (fullWindow) navigator.current.chapterAction() else null,
-            radioPaused = navigator.current == Screen.Interview,
+            radioPaused = LocalRadioPlayback.current.paused,
         )
         Screen.Driving -> DrivingScreen(
             onCallOto = { navigator.navigate(Screen.Interview) },

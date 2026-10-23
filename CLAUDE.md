@@ -144,6 +144,11 @@
 - 주행/정차: `domain/DriveModeRule`(P단이고 멈췄을 때만 정차, 기어를 모르거나 주행 제한이면 주행). 출발하면 주행 홈으로, P단이 되면 주행 전용 화면(주행 홈·제안·마무리)을 닫고 Main으로 간다. 인터뷰는 정차 중에도 이어 간다.
 - 상황 트리거: `domain/trigger/TriggerEngine`(순수 Kotlin, 단위 테스트). 우선순위는 도착 10분 전 마무리 > 복잡 구간 미루기 > 미룬 대화 다시 제안 > 휴식 권유(연속 2시간) > 정체(20km/h 미만)·직진 15분 제안. 제안 뒤 20분은 다시 제안하지 않고, 인터뷰 중에는 제안하지 않는다. 제안 전에는 알림 멜로디(`data/audio/ChimePlayer`, 코드로 만든 두 음)를 먼저 울린다.
 - 경로 안내: 지금은 `FakeNaviState`. Pleos NaviHelper 3.0.5는 앱 등록 없이 쓸 수 있고 `DrivingInfo.destination.duration`(남은 시간)·`TBTInfo(type, distance)`(다음 회전)·`onNavigationStatus`가 있다. 단위(초/분, 미터)는 에뮬레이터에서 확인한 뒤 마일스톤 8에서 구현체를 붙인다.
+- 저장(M4 최소): Room `question`·`answer` 테이블(`data/db`), 질문 은행은 `assets/questions/02.json`(‘첫 차’ 7문항). 진행률 = 답한 질문 수 / 질문 수. 디버그 빌드는 처음 실행 때 예시 답변 3편을 넣는다(`assets/demo/answers.json`의 seed). 스키마는 `app/schemas`.
+- 음성(M5, 시연용): `FakeSpeechInput`은 실제 마이크 음량으로 파형을 움직이고, 말이 1.5초 끊기면 `assets/demo/answers.json`의 문장을 받아 적는다. `CaptionSpeechOutput`은 소리 없이 읽는 시간만 기다린다(오토 목소리는 영상 편집으로). 인터뷰 루프는 `domain/interview/InterviewSession`, 음성 명령은 `VoiceCommand`.
+  - 음성 데모 이벤트: `yes`(“응”), `stop`(“오토야, 잠깐만”), `whatsup`(“오토야, 뭐해?”), `answer`(지금 말이 끝난 것으로)
+  - 소리: 알림 멜로디·오토 발화 중에는 다른 소리를 줄이고(오디오 포커스 duck), 인터뷰·원고 듣기 중에는 멈춘다(transient). 미니 플레이어에 “소리 줄임”·“인터뷰 중 잠시 멈춤”으로 보인다.
+  - 에뮬레이터 소리는 Mac 스피커로 나오지 않는다(출력 버스는 동작함). 시연 영상의 소리는 편집으로 입힌다. 시연 진행: `tools/demo/demo.sh`, 장면 구성: `docs/demo-video.md`.
 - 시안 비교 이미지는 `captures/<마일스톤>/`에 둔다(저장소 제외).
 
 ## 마일스톤 (권장 순서)

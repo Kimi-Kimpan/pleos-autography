@@ -128,7 +128,7 @@ class SituationController(
             DemoEvent.COMPLEX_START -> fakeNavi.setComplexSection(true)
             DemoEvent.COMPLEX_END -> fakeNavi.setComplexSection(false)
             DemoEvent.ARRIVAL_10 -> fakeNavi.setMinutesToArrival(9)
-            DemoEvent.PARK -> Unit
+            else -> Unit
         }
     }
 

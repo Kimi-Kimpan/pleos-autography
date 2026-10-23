@@ -1,5 +1,6 @@
 package com.pleosautography.app
 
+import android.Manifest
 import android.car.Car
 import android.content.Intent
 import android.content.pm.ApplicationInfo
@@ -13,7 +14,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.pleosautography.app.domain.demo.DemoEvent
+import com.pleosautography.app.ui.AppServices
 import com.pleosautography.app.ui.AutographyApp
+import com.pleosautography.app.ui.CURRENT_CHAPTER
 import com.pleosautography.app.ui.LaunchRequest
 import com.pleosautography.app.ui.navigation.Screen
 import com.pleosautography.app.ui.theme.DemoOptions
@@ -24,25 +27,34 @@ class MainActivity : ComponentActivity() {
     private val debuggable by lazy { (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0 }
     private var launch by mutableStateOf(LaunchRequest())
 
-    private val requestSpeedPermission =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (granted) graph.carVehicle.onSpeedPermissionGranted()
+    private val requestPermissions =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
+            if (result[Car.PERMISSION_SPEED] == true) graph.carVehicle.onSpeedPermissionGranted()
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (savedInstanceState == null) launch = readLaunchRequest(intent)
-        if (checkSelfPermission(Car.PERMISSION_SPEED) != PackageManager.PERMISSION_GRANTED) {
-            requestSpeedPermission.launch(Car.PERMISSION_SPEED)
-        }
+        // 속도(주행 판정)와 마이크(인터뷰). 정차 중 첫 실행에 한 번 묻는다.
+        val missing = listOf(Car.PERMISSION_SPEED, Manifest.permission.RECORD_AUDIO)
+            .filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
+        if (missing.isNotEmpty()) requestPermissions.launch(missing.toTypedArray())
+        val services = AppServices(
+            situation = graph.situation,
+            interview = graph.interview,
+            speechInput = graph.speechInput,
+            radio = graph.radioAudio.radio,
+            currentChapter = graph.repository.observeProgress(CURRENT_CHAPTER),
+            playChime = { graph.radioAudio.ducking { graph.chime.play() } },
+            setTalking = graph.radioAudio::setTalking,
+        )
         setContent {
             val driveMode by graph.driveMode.collectAsState()
             AutographyApp(
                 driveMode = driveMode,
                 launch = launch,
                 onDemoEvent = if (debuggable) graph.demoEvents::send else null,
-                situation = graph.situation,
-                playChime = graph.chime::play,
+                services = services,
             )
         }
     }

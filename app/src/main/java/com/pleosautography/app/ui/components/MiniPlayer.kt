@@ -19,6 +19,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import com.pleosautography.app.data.demo.NowPlaying
 import com.pleosautography.app.domain.DriveMode
 import com.pleosautography.app.ui.icons.AutoIcons
+import com.pleosautography.app.ui.screens.LocalRadioPlayback
 import com.pleosautography.app.ui.theme.AutoColors
 import com.pleosautography.app.ui.theme.AutoType
 import com.pleosautography.app.ui.theme.LocalDriveMode
@@ -62,7 +63,12 @@ fun MiniPlayer(
                 verticalArrangement = Arrangement.spacedBy(4.px),
             ) {
                 SingleLine(
-                    if (pausedForInterview) "오토그래피 라디오 · 인터뷰 중 잠시 멈춤" else nowPlaying.label,
+                    when {
+                        pausedForInterview -> "오토그래피 라디오 · 인터뷰 중 잠시 멈춤"
+                        // 알림 멜로디·오토 발화 중에는 소리를 줄인다.
+                        LocalRadioPlayback.current.ducked -> "오토그래피 라디오 · 소리 줄임"
+                        else -> nowPlaying.label
+                    },
                     AutoType.PlayerLabel,
                     AutoColors.InkSecondary,
                 )

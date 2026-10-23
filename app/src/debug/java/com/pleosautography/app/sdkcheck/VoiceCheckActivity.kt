@@ -69,6 +69,7 @@ class VoiceCheckActivity : ComponentActivity() {
             "tts" -> checkTts(intent.getStringExtra("engine"))
             "mic" -> checkMic()
             "stt" -> checkStt()
+            "tone" -> checkTone(intent.getStringExtra("usage") ?: "media")
         }
     }
 
@@ -143,6 +144,32 @@ class VoiceCheckActivity : ComponentActivity() {
             record.stop()
             record.release()
             log("마이크 녹음 끝")
+        }
+    }
+
+    // 4) 소리 출력: 2초 동안 440Hz를 [usage]로 재생한다. Mac 스피커로 나오면 마이크 레벨(step mic)이 오른다.
+    private fun checkTone(usage: String) {
+        val usageValue = when (usage) {
+            "assistant" -> android.media.AudioAttributes.USAGE_ASSISTANT
+            "guidance" -> android.media.AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE
+            "notification" -> android.media.AudioAttributes.USAGE_NOTIFICATION
+            else -> android.media.AudioAttributes.USAGE_MEDIA
+        }
+        thread(name = "tone-probe") {
+            val rate = 44100
+            val samples = ShortArray(rate * 2) { i -> (kotlin.math.sin(2 * Math.PI * 440 * i / rate) * 0.6 * Short.MAX_VALUE).toInt().toShort() }
+            val track = android.media.AudioTrack.Builder()
+                .setAudioAttributes(android.media.AudioAttributes.Builder().setUsage(usageValue).build())
+                .setAudioFormat(AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_16BIT).setSampleRate(rate).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
+                .setTransferMode(android.media.AudioTrack.MODE_STATIC)
+                .setBufferSizeInBytes(samples.size * 2)
+                .build()
+            track.write(samples, 0, samples.size)
+            track.play()
+            log("소리 재생: $usage (2초)")
+            Thread.sleep(2200)
+            track.release()
+            log("소리 끝: $usage")
         }
     }
 

@@ -43,6 +43,8 @@ import com.pleosautography.app.ui.components.SingleLine
 import com.pleosautography.app.ui.components.StatusChip
 import com.pleosautography.app.ui.icons.AutoIcons
 import com.pleosautography.app.ui.icons.Illustrations
+import com.pleosautography.app.ui.screens.LocalLiveProgress
+import com.pleosautography.app.ui.screens.live
 import com.pleosautography.app.ui.theme.AutoColors
 import com.pleosautography.app.ui.theme.DisabledAlpha
 import com.pleosautography.app.ui.theme.GowunBatang
@@ -261,7 +263,7 @@ fun MyBookSidePane(modifier: Modifier = Modifier) {
             HLine(Modifier.padding(top = 34.px), color = AutoColors.Ink)
         }
         DemoData.chapters.forEach { chapter ->
-            if (chapter.status == ChapterStatus.WRITING) CurrentChapterRow(chapter) else BookChapterRow(chapter)
+            if (chapter.status == ChapterStatus.WRITING) CurrentChapterRow(chapter.live()) else BookChapterRow(chapter.live())
         }
         Spacer(Modifier.weight(1f))
         Row(
@@ -337,6 +339,7 @@ private fun BookChapterRow(chapter: ChapterSummary) {
 @Composable
 private fun CurrentChapterRow(chapter: ChapterSummary) {
     val book = DemoData.book
+    val live = LocalLiveProgress.current
     Column {
         Column(
             modifier = Modifier
@@ -353,7 +356,7 @@ private fun CurrentChapterRow(chapter: ChapterSummary) {
             Column(Modifier.padding(start = 66.px), verticalArrangement = Arrangement.spacedBy(10.px)) {
                 ProgressBar(chapter.progress)
                 BasicText(
-                    "${chapter.storyCount}편 · ${(chapter.progress * 100).roundToInt()}% · 질문 ${book.currentQuestion} / ${book.currentQuestionTotal}",
+                    "${chapter.storyCount}편 · ${(chapter.progress * 100).roundToInt()}% · 질문 ${live?.questionNumber ?: book.currentQuestion} / ${live?.total ?: book.currentQuestionTotal}",
                     style = TextSpec(21f, FontWeight.SemiBold).style(AutoColors.InkSecondary),
                 )
             }
