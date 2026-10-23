@@ -1,0 +1,64 @@
+package com.pleosautography.app.ui.navigation
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
+
+/** 화면이 2단 배치에서 어디에 놓이는지. */
+enum class PaneRole {
+    /** 홈. 2단이면 왼쪽 창에 늘 떠 있다. */
+    HOME,
+
+    /** 홈에서 여는 화면. 2단이면 오른쪽 창에 열린다. */
+    DETAIL,
+}
+
+/** docs/screens.md의 화면 14개. */
+enum class Screen(val label: String, val role: PaneRole = PaneRole.DETAIL) {
+    Main("01 홈 · 챕터 목록", PaneRole.HOME),
+    Driving("02 주행 중 홈", PaneRole.HOME),
+    Player("03 오토그래피 라디오"),
+    Interview("04 음성 인터뷰"),
+    Script("05 원고 보기"),
+    NavToolbar("06 오토 툴바"),
+    Nudge("07 정체 감지 제안"),
+    Pause("08 도착 전 마무리"),
+    ListenDrive("09 원고 듣기·고치기"),
+    Complete("10 챕터 완성"),
+    Onboarding("11-1 첫 실행 · 부르는 이름"),
+    Onboarding2("11-2 자서전 제목"),
+    Onboarding3("11-3 첫 챕터"),
+    Settings("12 환경설정"),
+}
+
+/** 단일 Activity의 화면 스택. 마지막 항목이 지금 화면이다. */
+class AppNavigator(initial: List<Screen>) {
+    val backStack = mutableStateListOf<Screen>().apply { addAll(initial) }
+
+    val current: Screen get() = backStack.last()
+
+    val canGoBack: Boolean get() = backStack.size > 1
+
+    /** 홈 화면으로 가면 스택을 비우고, 그 밖의 화면은 위에 쌓는다. */
+    fun navigate(screen: Screen) {
+        if (screen == current) return
+        if (screen.role == PaneRole.HOME) backStack.clear()
+        backStack.add(screen)
+    }
+
+    fun back() {
+        if (canGoBack) backStack.removeAt(backStack.lastIndex)
+    }
+
+    companion object {
+        val Saver = listSaver<AppNavigator, String>(
+            save = { navigator -> navigator.backStack.map { it.name } },
+            restore = { names -> AppNavigator(names.map(Screen::valueOf)) },
+        )
+    }
+}
+
+@Composable
+fun rememberAppNavigator(): AppNavigator =
+    rememberSaveable(saver = AppNavigator.Saver) { AppNavigator(listOf(Screen.Main)) }

@@ -1,0 +1,41 @@
+<!doctype html><html lang=ko><head><meta charset=utf-8><title>첫 실행 제목 정하기</title><style>@font-face{font-family:'Asta Sans';src:url('../fonts/AstaSans[wght].ttf');font-weight:300 800}
+@font-face{font-family:'Gowun Batang';src:url('../fonts/GowunBatang-Regular.ttf');font-weight:400}
+@font-face{font-family:'Gowun Batang';src:url('../fonts/GowunBatang-Bold.ttf');font-weight:700}
+
+body{margin:0}
+.ruled{line-height:var(--lh);background-image:linear-gradient(to bottom,transparent calc(var(--lh) - 2px),var(--rc,#c9c7de) 0);background-size:100% var(--lh)}
+.fld{height:92px;border:2.5px solid #1a0bd0;border-radius:46px;padding:0 34px;box-sizing:border-box;display:flex;align-items:center;gap:14px}
+.fld input{flex:1;min-width:0;border:none;background:transparent;font-family:inherit;font-size:32px;font-weight:700;color:#1a0bd0;outline:none}
+.chip{height:68px;border-radius:34px;border:2.5px solid #1a0bd0;background:transparent;color:#1a0bd0;font-family:inherit;font-size:26px;font-weight:700;padding:0 26px;cursor:pointer}
+.on{background:#1a0bd0;color:#ffffff}
+.nav{height:96px;border-radius:48px;font-family:'Gowun Batang',serif;font-size:32px;font-weight:700;display:flex;align-items:center;justify-content:center;box-sizing:border-box;text-decoration:none}
+</style></head><body style='margin:0'>
+<div style="width:960px;height:1280px;box-sizing:border-box;background:#efefef;font-family:'Asta Sans','Noto Sans KR',sans-serif;color:#1a0bd0;display:grid;grid-template-columns:72px minmax(0,1fr);overflow:hidden">
+
+  <div style="border-right:2px solid #1a0bd0;display:flex;flex-direction:column;justify-content:space-between;align-items:center;padding:36px 0 28px">
+    <span style="writing-mode:vertical-rl;font-size:22px;font-weight:800">김○○의 자서전</span>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:16px">
+      <span style="writing-mode:vertical-rl;font-family:'Gowun Batang',serif;font-size:21px;font-weight:700;letter-spacing:.03em">Autography</span>
+      <span aria-label="환경설정" style="width:52px;height:52px;border-radius:26px;border:2px solid #1a0bd0;display:flex;align-items:center;justify-content:center;box-sizing:border-box;opacity:.45"><svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.4" fill="none" stroke="#1a0bd0" stroke-width="2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" stroke="#1a0bd0" stroke-width="2" stroke-linecap="round"/></svg></span>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;min-width:0;padding:40px 40px 40px">
+    <span style="align-self:flex-start;font-size:22px;font-weight:700;border:2px solid #1a0bd0;border-radius:24px;padding:5px 16px">처음 시작하기 · 정차 중</span>
+    <p class="ruled" style="--lh:78px;margin:220px 0 0;font-family:'Gowun Batang',serif;font-size:54px;font-weight:700;letter-spacing:-.015em">좋아요, ○○님.<br>이 자서전의 제목을<br>정해 볼까요?</p>
+
+    <div style="display:flex;flex-direction:column;gap:16px;margin-top:56px">
+      <label for="ob-title" style="font-size:26px;font-weight:800">자서전 제목</label>
+      <div class="fld"><input id="ob-title" type="text" value="김○○의 자서전"><svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" fill="#4a44a6"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4" stroke="#4a44a6" stroke-width="2" fill="none"/></svg></div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap"><button class="chip on">김○○의 자서전</button><button class="chip">길 위의 날들</button><button class="chip">운전석에서 쓴 이야기</button></div>
+      <span style="font-size:22px;font-weight:600;color:#7a74c9">책등과 출판물 표지에 들어가요. 나중에 환경설정에서 바꿀 수 있어요.</span>
+    </div>
+
+    <div style="margin-top:auto;display:flex;align-items:center;gap:18px">
+      <span style="flex:1;font-family:'Gowun Batang',serif;font-size:32px;font-weight:700;color:#7a74c9;font-variant-numeric:tabular-nums">2/3</span>
+      <a href="Onboarding.html" class="nav" style="width:240px;border:2.5px solid #1a0bd0;color:#1a0bd0">이전</a>
+      <a href="Onboarding3.html" class="nav" style="width:240px;background:#1a0bd0;color:#ffffff">다음</a>
+    </div>
+  </div>
+</div>
+</body></html>

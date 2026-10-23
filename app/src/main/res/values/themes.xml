@@ -1,0 +1,6 @@
+<resources>
+    <!-- 화면은 Compose가 그린다. 창 배경만 디자인 토큰 bg로 맞춘다. -->
+    <style name="Theme.Autography" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/bg</item>
+    </style>
+</resources>

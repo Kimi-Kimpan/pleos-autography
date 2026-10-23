@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-feature
+        android:name="android.hardware.type.automotive"
+        android:required="true" />
+    <!-- Pleos 앱 영역은 세로 한쪽 창과 가로 전체 창을 모두 쓴다 -->
+    <uses-feature
+        android:name="android.hardware.screen.portrait"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.screen.landscape"
+        android:required="false" />
+
+    <!-- Pleos Vehicle SDK: 기어 조회 (protection level: normal) -->
+    <uses-permission android:name="pleos.car.permission.CAR_DRIVE" />
+    <!-- Android Car API: GEAR_SELECTION (normal) -->
+    <uses-permission android:name="android.car.permission.CAR_POWERTRAIN" />
+    <!-- Android Car API: PERF_VEHICLE_SPEED (dangerous, 런타임 요청) -->
+    <uses-permission android:name="android.car.permission.CAR_SPEED" />
+
+    <application
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Autography">
+
+        <!-- screenOrientation은 지정하지 않는다: Pleos가 세로 한쪽 창 또는 가로 전체 창을 정한다 -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- 주행 중에도 음성 화면이 가려지지 않아야 한다 -->
+            <meta-data
+                android:name="distractionOptimized"
+                android:value="true" />
+        </activity>
+    </application>
+
+</manifest>
