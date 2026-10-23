@@ -30,6 +30,11 @@
     기어·속도는 Android Car API(`CarPropertyManager`의 `GEAR_SELECTION`, `PERF_VEHICLE_SPEED`)로 읽는다.
     `CAR_SPEED`는 런타임 권한이고, 요청 창에는 ‘위치 정보’로 표시된다.
   - 디버그 빌드에는 런처 아이콘 ‘SDK 확인’(`src/debug`의 `VehicleCheckActivity`)이 있어 기어·속도 값을 바로 볼 수 있다.
+  - 음성 확인 결과(2026-10-23, 디버그 ‘음성 확인’ 화면 `VoiceCheckActivity`로 다시 확인할 수 있다)
+    - Mac 마이크 → 에뮬레이터: 된다(`adb emu avd hostmicon`, 에뮬레이터를 다시 켜면 다시 실행).
+    - Android 표준 TTS: 쓸 수 있는 엔진이 없다. Pleos 엔진(`ai.pleos.playground.caas`)은 표준 API로 연결되지 않는다.
+    - Android 표준 음성 인식(`ai.umos.ambientai`): 듣기는 시작하지만 결과·오류를 돌려주지 않는다.
+    - Pleos TextToSpeech·SpeechToText SDK 3.3.1은 저장소에 있지만 `registerApp(...)`에 앱 등록 정보가 필요하다. 승인 전까지는 Fake로 시연한다.
 - **SDK 어댑터 패턴 (필수)**
   - SDK마다 인터페이스를 둔다: `SpeechInput`, `SpeechOutput`, `VehicleState`, `NaviState`.
   - 구현체는 두 가지를 만든다.

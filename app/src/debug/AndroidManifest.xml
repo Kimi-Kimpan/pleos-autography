@@ -1,7 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- 디버그 빌드 전용: 음성 확인 화면. 정식 기능의 마이크 권한은 마일스톤 5에서 main에 둔다 -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Pleos 음성 서비스(ai.pleos.playground.caas)가 선언한 권한 (protection level: normal) -->
+    <uses-permission android:name="pleos.car.permission.TTS_SERVICE" />
+    <uses-permission android:name="pleos.car.permission.STT_SERVICE" />
+
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
+
     <application>
+        <activity
+            android:name=".sdkcheck.VoiceCheckActivity"
+            android:exported="true"
+            android:label="음성 확인"
+            android:launchMode="singleTop">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <meta-data
+                android:name="distractionOptimized"
+                android:value="true" />
+        </activity>
+
         <!-- 디버그 빌드 전용: 차량 SDK 연결 확인 -->
         <activity
             android:name=".sdkcheck.VehicleCheckActivity"
