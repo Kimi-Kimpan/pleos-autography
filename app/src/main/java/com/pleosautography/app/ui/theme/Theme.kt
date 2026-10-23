@@ -21,6 +21,12 @@ data class DemoOptions(
 
 val LocalDemoOptions = staticCompositionLocalOf { DemoOptions() }
 
+/**
+ * 화면 안의 상태 칩(“정차 중 · P”, “주행 중 · …”)을 그릴지. 가로 전체 창에서는 창 오른쪽 위 한 곳에만
+ * 칩을 그리므로 false가 된다(docs/screens.md ‘상태 칩’).
+ */
+val LocalShowStatusChip = staticCompositionLocalOf { true }
+
 private val SelectionColors = TextSelectionColors(
     handleColor = AutoColors.Ink,
     backgroundColor = AutoColors.LavenderSoft,

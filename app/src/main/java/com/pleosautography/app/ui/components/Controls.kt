@@ -20,8 +20,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.semantics.Role
@@ -31,6 +36,7 @@ import com.pleosautography.app.ui.icons.AutoIcons
 import com.pleosautography.app.ui.theme.AutoColors
 import com.pleosautography.app.ui.theme.AutoType
 import com.pleosautography.app.ui.theme.DisabledAlpha
+import com.pleosautography.app.ui.theme.LocalShowStatusChip
 import com.pleosautography.app.ui.theme.TextSpec
 import com.pleosautography.app.ui.theme.px
 
@@ -43,6 +49,7 @@ private val PillShape = RoundedCornerShape(percent = 50)
  * @param baseColor 꽉 찬 모양이면 바탕색, 아웃라인이면 테두리·글자색.
  * @param onBaseColor 꽉 찬 모양의 글자색.
  * @param leading 아이콘 대신 앞에 둘 내용(예: 링 타이머).
+ * @param selected 오른쪽 칸에 이 버튼의 화면이 열려 있음을 바깥 6px 링으로 보인다.
  */
 @Composable
 fun PillButton(
@@ -64,11 +71,14 @@ fun PillButton(
     onBaseColor: Color = AutoColors.OnInk,
     contentAlignment: Alignment.Horizontal = Alignment.CenterHorizontally,
     leading: (@Composable () -> Unit)? = null,
+    selected: Boolean = false,
 ) {
     val contentColor = if (filled) onBaseColor else baseColor
+    val ring = 6.px
     Row(
         modifier = modifier
             .height(heightPx.px)
+            .then(if (selected) Modifier.drawBehind { drawSelectionRing(ring.toPx()) } else Modifier)
             .alpha(if (enabled) 1f else DisabledAlpha)
             .clip(PillShape)
             .then(if (filled) Modifier.background(baseColor) else Modifier)
@@ -96,6 +106,17 @@ fun PillButton(
             overflow = TextOverflow.Clip,
         )
     }
+}
+
+private val SelectionRing = Color(0x241A0BD0) // rgba(26,11,208,.14)
+
+private fun DrawScope.drawSelectionRing(width: Float) {
+    drawRoundRect(
+        color = SelectionRing,
+        topLeft = Offset(-width, -width),
+        size = Size(size.width + width * 2, size.height + width * 2),
+        cornerRadius = CornerRadius(size.height / 2 + width),
+    )
 }
 
 /** ‘여기까지’(저장 후 중지) 버튼: 클립 아이콘이 들어간 아웃라인 알약. 주행 중에도 쓸 수 있다. */
@@ -206,4 +227,15 @@ fun ProgressBar(progress: Float, modifier: Modifier = Modifier, heightPx: Float 
                 .background(AutoColors.Ink),
         )
     }
+}
+
+/**
+ * 화면의 상태 칩. 가로 전체 창에서는 창 오른쪽 위에 한 번만 그리므로 여기서는 숨긴다([LocalShowStatusChip]).
+ * @return 칩을 그렸는지(숨겼을 때 자리를 다르게 잡는 화면이 쓴다).
+ */
+@Composable
+fun ScreenStatusChip(text: String, filled: Boolean, modifier: Modifier = Modifier, sizePx: Float = 20f): Boolean {
+    if (!LocalShowStatusChip.current) return false
+    StatusChip(text, modifier, filled = filled, sizePx = sizePx)
+    return true
 }

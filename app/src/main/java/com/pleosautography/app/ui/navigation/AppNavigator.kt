@@ -56,6 +56,13 @@ class AppNavigator(initial: List<Screen>) {
         backStack.add(screen)
     }
 
+    /** Main에서 화면을 연다. 이미 열린 화면이 있으면 바꿔 끼운다(가로 전체 창 오른쪽 칸이 하나뿐이므로). */
+    fun openFromMain(screen: Screen) {
+        backStack.clear()
+        backStack.add(Screen.Main)
+        backStack.add(screen)
+    }
+
     /** 스택을 [screen]의 홈 위에 [screen] 하나만 있게 바꾼다(디버그 실행, 상태 전환용). */
     fun reset(screen: Screen) {
         backStack.clear()

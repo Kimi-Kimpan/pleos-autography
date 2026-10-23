@@ -64,11 +64,11 @@ private val CoverInk = Color(0xFF111214)
 private val CoverArt = Color(0xFFB9B6A9)
 private val CardShadow = Color(0x29111214)
 
+/** 칸 이름. 오른쪽 위에는 창 전체의 상태 칩이 겹쳐 그려지므로 칩은 두지 않는다. */
 @Composable
-private fun PaneHeader(label: String, chip: @Composable () -> Unit) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        BasicText(label, style = PaneLabel.style(), modifier = Modifier.weight(1f))
-        chip()
+private fun PaneHeader(label: String) {
+    Box(Modifier.fillMaxWidth().height(36.px), contentAlignment = Alignment.CenterStart) {
+        BasicText(label, style = PaneLabel.style())
     }
 }
 
@@ -81,9 +81,7 @@ fun RadioSidePane(modifier: Modifier = Modifier) {
             .fillMaxSize()
             .padding(start = 40.px, top = 36.px, end = 40.px, bottom = 40.px),
     ) {
-        PaneHeader("AUTOGRAPHY RADIO") {
-            StatusChip("주행 중 · 재생 조작만", verticalPaddingPx = 5f)
-        }
+        PaneHeader("AUTOGRAPHY RADIO")
         Row(
             modifier = Modifier.padding(top = 30.px),
             verticalAlignment = Alignment.CenterVertically,
@@ -242,9 +240,7 @@ fun MyBookSidePane(modifier: Modifier = Modifier) {
             .padding(top = 36.px, bottom = 40.px),
     ) {
         Column(Modifier.padding(horizontal = 40.px)) {
-            PaneHeader("MY AUTOGRAPHY") {
-                StatusChip("라디오는 인터뷰 중 잠시 멈춤", icon = AutoIcons.Pause, verticalPaddingPx = 5f)
-            }
+            PaneHeader("MY AUTOGRAPHY")
             Row(
                 modifier = Modifier.padding(top = 30.px),
                 verticalAlignment = Alignment.CenterVertically,
@@ -268,11 +264,17 @@ fun MyBookSidePane(modifier: Modifier = Modifier) {
             if (chapter.status == ChapterStatus.WRITING) CurrentChapterRow(chapter) else BookChapterRow(chapter)
         }
         Spacer(Modifier.weight(1f))
-        BasicText(
-            "07~12장과 원고 보기·듣기는 정차 중에 열려요",
-            style = Footnote.style(AutoColors.InkMuted),
+        Row(
             modifier = Modifier.padding(horizontal = 40.px),
-        )
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.px),
+        ) {
+            Image(rememberVectorPainter(AutoIcons.Pause), null, Modifier.size(18.px), colorFilter = ColorFilter.tint(AutoColors.InkMuted))
+            BasicText(
+                "라디오는 인터뷰 중 잠시 멈춰요 · 07~12장과 원고 보기·듣기는 정차 중에 열려요",
+                style = Footnote.style(AutoColors.InkMuted),
+            )
+        }
     }
 }
 

@@ -37,11 +37,3 @@ fun PlaceholderScreen(screen: Screen, onBack: (() -> Unit)?, modifier: Modifier 
         )
     }
 }
-
-/** 2단 배치에서 오른쪽 창에 아무 화면도 열려 있지 않을 때. */
-@Composable
-fun EmptyDetailPane(modifier: Modifier = Modifier) {
-    Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        BasicText("챕터를 고르면 여기에 열려요", style = AutoType.Meta.style(AutoColors.InkMuted))
-    }
-}

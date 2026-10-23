@@ -40,8 +40,15 @@ import com.pleosautography.app.ui.theme.AutoType
 import com.pleosautography.app.ui.theme.TextSpec
 import com.pleosautography.app.ui.theme.px
 
+/** 펼친 챕터의 버튼. 가로 전체 창에서 오른쪽에 열린 화면을 표시할 때 쓴다. */
+enum class ChapterAction { CONTINUE, LISTEN, SCRIPT }
+
 /**
  * 01 홈 · 챕터 목록 (정차 중). 시안: design/screens/Main.png
+ * 가로 전체 창에서는 인사말 머리글 없이 목록만 쓰고(인사말은 오른쪽 칸으로), 시안 FullPark.
+ *
+ * @param selectedAction 오른쪽 칸에 열린 화면의 버튼(선택 표시).
+ * @param radioPaused 정차 중 인터뷰가 열려 라디오를 잠시 멈췄는지.
  */
 @Composable
 fun MainScreen(
@@ -50,14 +57,17 @@ fun MainScreen(
     onOpenScript: () -> Unit,
     onOpenPlayer: () -> Unit,
     modifier: Modifier = Modifier,
+    showHeader: Boolean = true,
+    selectedAction: ChapterAction? = null,
+    radioPaused: Boolean = false,
 ) {
     val chapters = DemoData.chapters
     val writing = chapters.firstOrNull { it.status == ChapterStatus.WRITING }
     Column(modifier.fillMaxSize()) {
-        Header(
-            greeting = "안녕하세요 ${DemoData.OWNER_CALL_NAME}님!\n‘${writing?.title ?: chapters.first().title}’ 이야기를 이어서 써 볼까요?",
-        )
-        HLine(color = AutoColors.Ink)
+        if (showHeader) {
+            Header(greeting = parkedGreeting(singleLine = true))
+            HLine(color = AutoColors.Ink)
+        }
         Column(
             Modifier
                 .weight(1f)
@@ -65,7 +75,7 @@ fun MainScreen(
         ) {
             chapters.forEachIndexed { index, chapter ->
                 if (chapter == writing) {
-                    ExpandedChapter(chapter, onContinueWriting, onListen, onOpenScript)
+                    ExpandedChapter(chapter, onContinueWriting, onListen, onOpenScript, selectedAction)
                 } else {
                     // 펼친 챕터와 맞닿은 구분선만 끝까지 긋고, 나머지는 안쪽으로 들인다.
                     val nextIsExpanded = chapters.getOrNull(index + 1) == writing
@@ -77,7 +87,7 @@ fun MainScreen(
                 }
             }
         }
-        MiniPlayer(DemoData.nowPlaying, onExpand = onOpenPlayer)
+        MiniPlayer(DemoData.nowPlaying, onExpand = onOpenPlayer, pausedForInterview = radioPaused)
     }
 }
 
@@ -130,6 +140,7 @@ private fun ExpandedChapter(
     onContinueWriting: () -> Unit,
     onListen: () -> Unit,
     onOpenScript: () -> Unit,
+    selectedAction: ChapterAction?,
 ) {
     Column {
         Column(
@@ -163,9 +174,9 @@ private fun ExpandedChapter(
                 modifier = Modifier.padding(start = 88.px),
                 horizontalArrangement = Arrangement.spacedBy(16.px),
             ) {
-                PillButton("이어쓰기", onContinueWriting, Modifier.weight(1f), AutoIcons.Pencil, filled = true, horizontalPaddingPx = 0f)
-                PillButton("들어보기", onListen, Modifier.weight(1f), AutoIcons.Play, iconSizePx = 26f, horizontalPaddingPx = 0f)
-                PillButton("원고 보기", onOpenScript, Modifier.weight(1f), AutoIcons.Document, horizontalPaddingPx = 0f)
+                PillButton("이어쓰기", onContinueWriting, Modifier.weight(1f), AutoIcons.Pencil, filled = true, horizontalPaddingPx = 0f, selected = selectedAction == ChapterAction.CONTINUE)
+                PillButton("들어보기", onListen, Modifier.weight(1f), AutoIcons.Play, iconSizePx = 26f, horizontalPaddingPx = 0f, selected = selectedAction == ChapterAction.LISTEN)
+                PillButton("원고 보기", onOpenScript, Modifier.weight(1f), AutoIcons.Document, horizontalPaddingPx = 0f, selected = selectedAction == ChapterAction.SCRIPT)
             }
         }
         HLine()
@@ -185,4 +196,11 @@ private fun ChapterSummary.metaText(): String = when (status) {
     ChapterStatus.DONE -> "완료 · ${storyCount}편"
     ChapterStatus.WRITING -> "${storyCount}편 · 쓰는 중"
     ChapterStatus.NOT_STARTED -> "시작 전"
+}
+
+/** 정차 중 인사말. 세로 창 머리글은 두 줄, 가로 전체 창 오른쪽 칸은 세 줄로 쓴다. */
+fun parkedGreeting(singleLine: Boolean): String {
+    val title = (DemoData.chapters.firstOrNull { it.status == ChapterStatus.WRITING } ?: DemoData.chapters.first()).title
+    val story = if (singleLine) "‘$title’ 이야기를 이어서 써 볼까요?" else "‘$title’ 이야기를\n이어서 써 볼까요?"
+    return "안녕하세요 ${DemoData.OWNER_CALL_NAME}님!\n$story"
 }

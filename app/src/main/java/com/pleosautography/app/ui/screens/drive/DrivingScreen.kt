@@ -19,7 +19,7 @@ import com.pleosautography.app.ui.components.MiniPlayer
 import com.pleosautography.app.ui.components.ProgressBar
 import com.pleosautography.app.ui.components.RuledText
 import com.pleosautography.app.ui.components.SingleLine
-import com.pleosautography.app.ui.components.StatusChip
+import com.pleosautography.app.ui.components.ScreenStatusChip
 import com.pleosautography.app.ui.theme.AutoColors
 import com.pleosautography.app.ui.theme.GowunBatang
 import com.pleosautography.app.ui.theme.TextSpec
@@ -49,12 +49,13 @@ fun DrivingScreen(
                 .fillMaxWidth()
                 .padding(start = 40.px, top = 36.px, end = 40.px, bottom = if (showMiniPlayer) 44.px else 56.px),
         ) {
-            StatusChip("주행 중 · 말로 불러 주세요", filled = true)
+            // 가로 전체 창에서는 상태 칩이 창 오른쪽 위로 가므로 인사말을 시안대로 190px에서 시작한다.
+            val chipShown = ScreenStatusChip("주행 중 · 말로 불러 주세요", filled = true)
             RuledText(
                 text = "좋은 하루 되세요!\n‘${chapter.title}’ 부분을 쓰고 있어요.",
                 spec = Greeting,
                 modifier = Modifier
-                    .padding(top = 150.px)
+                    .padding(top = if (chipShown) 150.px else 190.px)
                     .fillMaxWidth(),
             )
             ProgressBar(

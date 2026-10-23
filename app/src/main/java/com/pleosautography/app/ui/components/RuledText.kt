@@ -12,6 +12,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.style.TextAlign
 import com.pleosautography.app.ui.theme.AutoColors
 import com.pleosautography.app.ui.theme.TextSpec
 import com.pleosautography.app.ui.theme.px
@@ -27,12 +28,13 @@ fun RuledText(
     modifier: Modifier = Modifier,
     color: Color = AutoColors.Ink,
     ruleColor: Color = AutoColors.Ruled,
+    textAlign: TextAlign = TextAlign.Start,
 ) {
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
     val ruleThickness = 2.px
     BasicText(
         text = text,
-        style = spec.style(color),
+        style = spec.style(color).copy(textAlign = textAlign),
         onTextLayout = { layout = it },
         modifier = modifier.drawBehind {
             val result = layout ?: return@drawBehind

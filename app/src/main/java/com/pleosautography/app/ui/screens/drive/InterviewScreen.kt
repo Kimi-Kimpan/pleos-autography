@@ -16,13 +16,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import com.pleosautography.app.data.demo.ChapterStatus
+import com.pleosautography.app.data.demo.ChapterSummary
 import com.pleosautography.app.data.demo.DemoData
 import com.pleosautography.app.ui.components.HLine
+import com.pleosautography.app.ui.components.PillButton
 import com.pleosautography.app.ui.components.ProgressBar
 import com.pleosautography.app.ui.components.RuledText
-import com.pleosautography.app.ui.components.StatusChip
+import com.pleosautography.app.ui.components.ScreenStatusChip
 import com.pleosautography.app.ui.components.StopHereButton
 import com.pleosautography.app.ui.components.VoiceWave
+import com.pleosautography.app.ui.icons.AutoIcons
 import com.pleosautography.app.ui.theme.AutoColors
 import com.pleosautography.app.ui.theme.GowunBatang
 import com.pleosautography.app.ui.theme.TextSpec
@@ -41,10 +44,22 @@ private val Hint = TextSpec(36f, FontWeight.Bold, GowunBatang, lineHeightPx = 54
 /**
  * 04 음성 인터뷰. 시안: design/screens/Interview.png
  * 이미 듣는 중이라 마이크 대신 음성 파형을 보여 준다.
+ *
+ * @param parkedPane 가로 전체 창 정차 중 오른쪽 칸에 열 때(시안 FullParkInterview).
+ *   머리글 없이 질문부터 시작하고, ‘여기까지’는 아래 가운데에 둔다.
  */
 @Composable
-fun InterviewScreen(onStopHere: () -> Unit, modifier: Modifier = Modifier) {
+fun InterviewScreen(onStopHere: () -> Unit, modifier: Modifier = Modifier, parkedPane: Boolean = false) {
     val chapter = DemoData.chapters.first { it.status == ChapterStatus.WRITING }
+    if (parkedPane) {
+        ParkedPaneInterview(chapter, onStopHere, modifier)
+    } else {
+        FullInterview(chapter, onStopHere, modifier)
+    }
+}
+
+@Composable
+private fun FullInterview(chapter: ChapterSummary, onStopHere: () -> Unit, modifier: Modifier) {
     val demo = DemoData.drive
     Column(modifier.fillMaxSize()) {
         Row(
@@ -56,7 +71,7 @@ fun InterviewScreen(onStopHere: () -> Unit, modifier: Modifier = Modifier) {
         ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.px)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.px)) {
-                    StatusChip("주행 중 · 인터뷰", filled = true, sizePx = 22f)
+                    ScreenStatusChip("주행 중 · 인터뷰", filled = true, sizePx = 22f)
                     BasicText("도착까지 ${demo.minutesToArrival}분", style = Arrival.style())
                 }
                 BasicText("${chapter.number}장 ${chapter.title} · 질문 ${demo.questionNumber}", style = Title.style(), maxLines = 1)
@@ -65,41 +80,79 @@ fun InterviewScreen(onStopHere: () -> Unit, modifier: Modifier = Modifier) {
         }
         HLine(color = AutoColors.Ink)
 
-        Column(
-            modifier = Modifier.padding(start = 40.px, top = 40.px, end = 40.px),
-            verticalArrangement = Arrangement.spacedBy(16.px),
-        ) {
-            BasicText("오토가 물었어요", style = AskedLabel.style(AutoColors.InkSecondary))
-            RuledText(demo.question, Question, Modifier.fillMaxWidth())
-        }
-
-        Column(
+        QuestionBlock(Modifier.padding(start = 40.px, top = 40.px, end = 40.px))
+        ListeningBlock(
+            chapter = chapter,
+            hintTopPx = 56f,
             modifier = Modifier
                 .weight(1f)
-                .fillMaxWidth()
                 .padding(start = 40.px, top = 20.px, end = 40.px, bottom = 60.px),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(22.px, Alignment.CenterVertically),
-        ) {
-            VoiceWave()
-            BasicText("듣고 있어요", style = Listening.style(AutoColors.InkSecondary))
-            ProgressBar(
-                progress = chapter.progress,
-                heightPx = 16f,
-                modifier = Modifier
-                    .padding(top = 36.px)
-                    .widthIn(max = 580.px),
-            )
-            // 시안의 줄 높이(1em)가 글자 높이보다 작아서 상자 높이를 고정한다.
-            Box(Modifier.height(60.px), contentAlignment = Alignment.Center) {
-                BasicText("${(chapter.progress * 100).roundToInt()}%", style = Percent.style())
-            }
-            BasicText("‘${chapter.title}’가 채워지고 있어요", style = Filling.style())
-            BasicText(
-                text = demo.followUpHint,
-                style = Hint.style(AutoColors.InkMuted).copy(textAlign = TextAlign.Center),
-                modifier = Modifier.padding(top = 56.px),
-            )
+        )
+    }
+}
+
+@Composable
+private fun ParkedPaneInterview(chapter: ChapterSummary, onStopHere: () -> Unit, modifier: Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(start = 40.px, top = 36.px, end = 40.px, bottom = 44.px),
+    ) {
+        QuestionBlock(Modifier.padding(start = 16.px, top = 76.px, end = 16.px))
+        ListeningBlock(
+            chapter = chapter,
+            hintTopPx = 40f,
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 16.px, vertical = 10.px),
+        )
+        PillButton(
+            text = "여기까지",
+            onClick = onStopHere,
+            modifier = Modifier.align(Alignment.CenterHorizontally),
+            icon = AutoIcons.Clip,
+            heightPx = 96f,
+            iconSizePx = 34f,
+            startPaddingPx = 30f,
+            endPaddingPx = 40f,
+            textSpec = TextSpec(32f, FontWeight.ExtraBold),
+        )
+    }
+}
+
+@Composable
+private fun QuestionBlock(modifier: Modifier) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(16.px)) {
+        BasicText("오토가 물었어요", style = AskedLabel.style(AutoColors.InkSecondary))
+        RuledText(DemoData.drive.question, Question, Modifier.fillMaxWidth())
+    }
+}
+
+@Composable
+private fun ListeningBlock(chapter: ChapterSummary, hintTopPx: Float, modifier: Modifier) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(22.px, Alignment.CenterVertically),
+    ) {
+        VoiceWave()
+        BasicText("듣고 있어요", style = Listening.style(AutoColors.InkSecondary))
+        ProgressBar(
+            progress = chapter.progress,
+            heightPx = 16f,
+            modifier = Modifier
+                .padding(top = 36.px)
+                .widthIn(max = 580.px),
+        )
+        // 시안의 줄 높이(1em)가 글자 높이보다 작아서 상자 높이를 고정한다.
+        Box(Modifier.height(60.px), contentAlignment = Alignment.Center) {
+            BasicText("${(chapter.progress * 100).roundToInt()}%", style = Percent.style())
         }
+        BasicText("‘${chapter.title}’가 채워지고 있어요", style = Filling.style())
+        BasicText(
+            text = DemoData.drive.followUpHint,
+            style = Hint.style(AutoColors.InkMuted).copy(textAlign = TextAlign.Center),
+            modifier = Modifier.padding(top = hintTopPx.px),
+        )
     }
 }

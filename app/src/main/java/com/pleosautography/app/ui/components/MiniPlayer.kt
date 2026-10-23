@@ -28,9 +28,15 @@ import com.pleosautography.app.ui.theme.px
 /**
  * 하단 미니 플레이어(위에 파란 2px 선 포함).
  * 일시정지·다음은 주행 중에도 쓰고, 펼치기(⌃)는 정차 중에만 쓴다.
+ * @param pausedForInterview 인터뷰가 열려 라디오를 잠시 멈춘 상태(재생 버튼과 “인터뷰 중 잠시 멈춤”).
  */
 @Composable
-fun MiniPlayer(nowPlaying: NowPlaying, onExpand: () -> Unit, modifier: Modifier = Modifier) {
+fun MiniPlayer(
+    nowPlaying: NowPlaying,
+    onExpand: () -> Unit,
+    modifier: Modifier = Modifier,
+    pausedForInterview: Boolean = false,
+) {
     val parked = LocalDriveMode.current == DriveMode.PARKED
     Column(modifier) {
         HLine(color = AutoColors.Ink)
@@ -55,11 +61,22 @@ fun MiniPlayer(nowPlaying: NowPlaying, onExpand: () -> Unit, modifier: Modifier 
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.px),
             ) {
-                SingleLine(nowPlaying.label, AutoType.PlayerLabel, AutoColors.InkSecondary)
+                SingleLine(
+                    if (pausedForInterview) "오토그래피 라디오 · 인터뷰 중 잠시 멈춤" else nowPlaying.label,
+                    AutoType.PlayerLabel,
+                    AutoColors.InkSecondary,
+                )
                 SingleLine(nowPlaying.title, AutoType.PlayerTitle, AutoColors.Ink)
                 SingleLine(nowPlaying.meta, AutoType.PlayerMeta, AutoColors.InkSecondary)
             }
-            CircleIconButton(AutoIcons.Pause, "일시정지", onClick = {}, sizePx = 92f, iconSizePx = 34f, borderPx = 3.5f)
+            CircleIconButton(
+                if (pausedForInterview) AutoIcons.Play else AutoIcons.Pause,
+                if (pausedForInterview) "재생" else "일시정지",
+                onClick = {},
+                sizePx = 92f,
+                iconSizePx = 34f,
+                borderPx = 3.5f,
+            )
             CircleIconButton(AutoIcons.Next, "다음 이야기", onClick = {})
             VLine(Modifier.height(64.px), color = AutoColors.Line)
             CircleIconButton(
