@@ -14,17 +14,19 @@ enum class PaneRole {
     DETAIL,
 }
 
-/** docs/screens.md의 화면 14개. */
-enum class Screen(val label: String, val role: PaneRole = PaneRole.DETAIL) {
+/**
+ * docs/screens.md의 화면. 06(NavToolbar)은 내비 옆 세로 창에 뜬 Driving이라 따로 두지 않는다.
+ * @param driving 주행 중 화면인지(마일스톤 3 전까지는 이 값으로 주행 상태를 정한다).
+ */
+enum class Screen(val label: String, val role: PaneRole = PaneRole.DETAIL, val driving: Boolean = false) {
     Main("01 홈 · 챕터 목록", PaneRole.HOME),
-    Driving("02 주행 중 홈", PaneRole.HOME),
+    Driving("02 주행 중 홈", PaneRole.HOME, driving = true),
     Player("03 오토그래피 라디오"),
-    Interview("04 음성 인터뷰"),
+    Interview("04 음성 인터뷰", driving = true),
     Script("05 원고 보기"),
-    NavToolbar("06 오토 툴바"),
-    Nudge("07 정체 감지 제안"),
-    Pause("08 도착 전 마무리"),
-    ListenDrive("09 원고 듣기·고치기"),
+    Nudge("07 정체 감지 제안", driving = true),
+    Pause("08 도착 전 마무리", driving = true),
+    ListenDrive("09 원고 듣기·고치기", driving = true),
     Complete("10 챕터 완성"),
     Onboarding("11-1 첫 실행 · 부르는 이름"),
     Onboarding2("11-2 자서전 제목"),
@@ -44,6 +46,13 @@ class AppNavigator(initial: List<Screen>) {
     fun navigate(screen: Screen) {
         if (screen == current) return
         if (screen.role == PaneRole.HOME) backStack.clear()
+        backStack.add(screen)
+    }
+
+    /** 스택을 [screen]의 홈 위에 [screen] 하나만 있게 바꾼다(디버그 실행, 상태 전환용). */
+    fun reset(screen: Screen) {
+        backStack.clear()
+        if (screen.role != PaneRole.HOME) backStack.add(if (screen.driving) Screen.Driving else Screen.Main)
         backStack.add(screen)
     }
 

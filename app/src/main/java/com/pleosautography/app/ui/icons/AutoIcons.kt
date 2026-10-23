@@ -33,6 +33,15 @@ object AutoIcons {
             cap = StrokeCap.Round,
         )
     }
+    /** 큰 마이크·이어서 하기 버튼용: 몸통을 채운 마이크. */
+    val MicFilled = icon("MicFilled") {
+        fill("M12 3a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z")
+        stroke("M6 11a6 6 0 0 0 12 0M12 17v4", 2f)
+    }
+    val Note = icon("Note") {
+        stroke("M9 18V6l11-2v12", 2f)
+        fill("M4 18a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0z M15 16a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0z")
+    }
     val Mic = icon("Mic") {
         stroke("M12 3a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z", 2f)
         stroke("M6 11a6 6 0 0 0 12 0M12 17v4", 2f)

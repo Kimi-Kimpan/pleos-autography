@@ -129,6 +129,10 @@
 - 새 화면을 만들면 에뮬레이터 스크린샷을 찍어 `design/screens/` 시안과 비교한다.
 - SDK 동작이 불확실하면 Fake 구현으로 먼저 흐름을 완성한 뒤 Pleos 구현체를 붙인다.
 - 빌드 확인: `./gradlew assembleDebug`, 단위 테스트: `./gradlew test`
+- 디버그 빌드는 adb로 화면을 바로 연다(시안 비교 스크린샷용):
+  `adb shell am start -n com.pleosautography.app/.MainActivity --es screen Nudge --ez timers false --ez micPulse true`
+  - `screen`: `Screen` 이름, `timers false`: 링 타이머 멈춤, `micPulse true`: 주행 중 마이크 맥동 링 켜기(시연용, 기본 꺼짐)
+- 시안 비교 이미지는 `captures/<마일스톤>/`에 둔다(저장소 제외).
 
 ## 마일스톤 (권장 순서)
 

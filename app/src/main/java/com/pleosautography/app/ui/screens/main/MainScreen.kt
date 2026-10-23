@@ -27,6 +27,8 @@ import com.pleosautography.app.data.demo.DemoData
 import com.pleosautography.app.data.demo.NowPlaying
 import com.pleosautography.app.ui.components.CircleIconButton
 import com.pleosautography.app.ui.components.HLine
+import com.pleosautography.app.ui.components.MiniPlayer
+import com.pleosautography.app.ui.components.SingleLine
 import com.pleosautography.app.ui.components.PillButton
 import com.pleosautography.app.ui.components.ProgressBar
 import com.pleosautography.app.ui.components.RuledText
@@ -75,7 +77,6 @@ fun MainScreen(
                 }
             }
         }
-        HLine(color = AutoColors.Ink)
         MiniPlayer(DemoData.nowPlaying, onExpand = onOpenPlayer)
     }
 }
@@ -172,57 +173,11 @@ private fun ExpandedChapter(
 }
 
 @Composable
-private fun MiniPlayer(nowPlaying: NowPlaying, onExpand: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 32.px, top = 26.px, end = 32.px, bottom = 32.px),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(20.px),
-    ) {
-        Box(
-            modifier = Modifier
-                .size(width = 84.px, height = 112.px)
-                .background(AutoColors.CoverPaper)
-                .border(1.5.px, AutoColors.Ink)
-                .padding(9.5.px),
-            contentAlignment = Alignment.BottomStart,
-        ) {
-            BasicText("Driving\nTogether", style = AutoType.CoverText.style())
-        }
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(4.px),
-        ) {
-            SingleLine(nowPlaying.label, AutoType.PlayerLabel, AutoColors.InkSecondary)
-            SingleLine(nowPlaying.title, AutoType.PlayerTitle, AutoColors.Ink)
-            SingleLine(nowPlaying.meta, AutoType.PlayerMeta, AutoColors.InkSecondary)
-        }
-        // 일시정지·다음은 주행 중에도 쓸 수 있는 컨트롤이다.
-        CircleIconButton(AutoIcons.Pause, "일시정지", onClick = {}, sizePx = 92f, iconSizePx = 34f, borderPx = 3.5f)
-        CircleIconButton(AutoIcons.Next, "다음 이야기", onClick = {})
-        VLine(Modifier.height(64.px), color = AutoColors.Line)
-        CircleIconButton(AutoIcons.ChevronUp, "플레이어 펼치기", onClick = onExpand, iconSizePx = 36f)
-    }
-}
-
-@Composable
 private fun ChapterNumber(number: Int, color: Color) {
     BasicText(
         text = "%02d".format(number),
         style = AutoType.ChapterNumber.style(color),
         modifier = Modifier.width(64.px),
-    )
-}
-
-@Composable
-private fun SingleLine(text: String, spec: TextSpec, color: Color, modifier: Modifier = Modifier) {
-    BasicText(
-        text = text,
-        style = spec.style(color),
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        modifier = modifier,
     )
 }
 

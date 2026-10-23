@@ -77,7 +77,6 @@ object AutoType {
     val LastStory = TextSpec(24f, FontWeight.SemiBold, lineHeightPx = 54f)
 
     // 컨트롤
-    val Chip = TextSpec(20f, FontWeight.Bold, lineHeightPx = 23f)
     val Pill = TextSpec(30f, FontWeight.ExtraBold)
 
     // 미니 플레이어
