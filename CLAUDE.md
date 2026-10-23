@@ -139,8 +139,11 @@
   - `screen`: `Screen` 이름(주행 중 화면이면 데모 주행 상태도 D단으로 넣는다), `timers false`: 링 타이머 멈춤, `drive drive|park|real`: 데모 주행 상태
 - 데모 이벤트(디버그 빌드): 책등의 ‘Autography’를 길게 누르면 데모 패널이 열린다. 영상에 패널이 보이지 않게 하려면 adb로 보낸다.
   `adb shell am broadcast -a com.pleosautography.app.DEMO_EVENT -p com.pleosautography.app --es event drive`
-  - `drive`(D·40km/h), `park`(P), `real`(실제 차량 값으로 돌아가기), M6: `congestion15`, `straight15`, `complex_start`, `complex_end`, `arrival10`
+  - `drive`(D·40km/h, 경로 안내를 처음 상태로), `park`(P), `real`(실제 차량 값으로 돌아가기)
+  - `congestion15`·`straight15`(앱 시계를 15분 앞당겨 바로 제안), `complex_start`·`complex_end`(복잡 구간), `arrival10`(도착 9분 전)
 - 주행/정차: `domain/DriveModeRule`(P단이고 멈췄을 때만 정차, 기어를 모르거나 주행 제한이면 주행). 출발하면 주행 홈으로, P단이 되면 주행 전용 화면(주행 홈·제안·마무리)을 닫고 Main으로 간다. 인터뷰는 정차 중에도 이어 간다.
+- 상황 트리거: `domain/trigger/TriggerEngine`(순수 Kotlin, 단위 테스트). 우선순위는 도착 10분 전 마무리 > 복잡 구간 미루기 > 미룬 대화 다시 제안 > 휴식 권유(연속 2시간) > 정체(20km/h 미만)·직진 15분 제안. 제안 뒤 20분은 다시 제안하지 않고, 인터뷰 중에는 제안하지 않는다. 제안 전에는 알림 멜로디(`data/audio/ChimePlayer`, 코드로 만든 두 음)를 먼저 울린다.
+- 경로 안내: 지금은 `FakeNaviState`. Pleos NaviHelper 3.0.5는 앱 등록 없이 쓸 수 있고 `DrivingInfo.destination.duration`(남은 시간)·`TBTInfo(type, distance)`(다음 회전)·`onNavigationStatus`가 있다. 단위(초/분, 미터)는 에뮬레이터에서 확인한 뒤 마일스톤 8에서 구현체를 붙인다.
 - 시안 비교 이미지는 `captures/<마일스톤>/`에 둔다(저장소 제외).
 
 ## 마일스톤 (권장 순서)

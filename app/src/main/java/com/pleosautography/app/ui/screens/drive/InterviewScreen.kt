@@ -72,7 +72,7 @@ private fun FullInterview(chapter: ChapterSummary, onStopHere: () -> Unit, modif
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.px)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.px)) {
                     ScreenStatusChip("주행 중 · 인터뷰", filled = true, sizePx = 22f)
-                    BasicText("도착까지 ${demo.minutesToArrival}분", style = Arrival.style())
+                    LocalDriveSituation.current.minutesToArrival?.let { BasicText("도착까지 ${it}분", style = Arrival.style()) }
                 }
                 BasicText("${chapter.number}장 ${chapter.title} · 질문 ${demo.questionNumber}", style = Title.style(), maxLines = 1)
             }

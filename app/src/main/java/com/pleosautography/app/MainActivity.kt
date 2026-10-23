@@ -41,6 +41,8 @@ class MainActivity : ComponentActivity() {
                 driveMode = driveMode,
                 launch = launch,
                 onDemoEvent = if (debuggable) graph.demoEvents::send else null,
+                situation = graph.situation,
+                playChime = graph.chime::play,
             )
         }
     }

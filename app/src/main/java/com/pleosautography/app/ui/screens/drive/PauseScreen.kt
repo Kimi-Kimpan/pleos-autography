@@ -61,7 +61,7 @@ fun PauseScreen(onSaveAndStop: () -> Unit, onContinue: () -> Unit, modifier: Mod
             verticalArrangement = Arrangement.spacedBy(40.px),
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(14.px)) {
-                StatusChip("도착까지 ${demo.pauseMinutesToArrival}분", sizePx = 24f, color = AutoColors.OnInk, horizontalPaddingPx = 18f, verticalPaddingPx = 6f)
+                StatusChip("도착까지 ${LocalDriveSituation.current.minutesToArrival ?: demo.pauseMinutesToArrival}분", sizePx = 24f, color = AutoColors.OnInk, horizontalPaddingPx = 18f, verticalPaddingPx = 6f)
                 StatusChip(
                     "${chapter.number}장 ${chapter.title} · 질문 ${demo.pauseQuestionNumber}",
                     modifier = Modifier.alpha(0.85f),

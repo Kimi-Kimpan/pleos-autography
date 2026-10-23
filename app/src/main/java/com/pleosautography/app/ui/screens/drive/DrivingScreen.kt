@@ -52,7 +52,8 @@ fun DrivingScreen(
             // 가로 전체 창에서는 상태 칩이 창 오른쪽 위로 가므로 인사말을 시안대로 190px에서 시작한다.
             val chipShown = ScreenStatusChip("주행 중 · 말로 불러 주세요", filled = true)
             RuledText(
-                text = "좋은 하루 되세요!\n‘${chapter.title}’ 부분을 쓰고 있어요.",
+                // 복잡한 구간에서 미뤘거나 휴식을 권할 때는 인사말 자리에 그 안내를 쓴다.
+                text = LocalDriveSituation.current.notice?.text ?: "좋은 하루 되세요!\n‘${chapter.title}’ 부분을 쓰고 있어요.",
                 spec = Greeting,
                 modifier = Modifier
                     .padding(top = if (chipShown) 150.px else 190.px)

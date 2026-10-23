@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -20,6 +21,9 @@ import androidx.compose.ui.Modifier
 import com.pleosautography.app.data.demo.DemoData
 import com.pleosautography.app.domain.DriveMode
 import com.pleosautography.app.domain.demo.DemoEvent
+import com.pleosautography.app.domain.trigger.NudgeReason
+import com.pleosautography.app.domain.trigger.SituationController
+import com.pleosautography.app.domain.trigger.TriggerAction
 import com.pleosautography.app.ui.components.Spine
 import com.pleosautography.app.ui.components.StatusChip
 import com.pleosautography.app.ui.components.VLine
@@ -29,8 +33,10 @@ import com.pleosautography.app.ui.navigation.PaneRole
 import com.pleosautography.app.ui.navigation.Screen
 import com.pleosautography.app.ui.navigation.rememberAppNavigator
 import com.pleosautography.app.ui.screens.PlaceholderScreen
+import com.pleosautography.app.ui.screens.drive.DriveSituation
 import com.pleosautography.app.ui.screens.drive.DrivingScreen
 import com.pleosautography.app.ui.screens.drive.InterviewScreen
+import com.pleosautography.app.ui.screens.drive.LocalDriveSituation
 import com.pleosautography.app.ui.screens.drive.MyBookSidePane
 import com.pleosautography.app.ui.screens.drive.NudgeScreen
 import com.pleosautography.app.ui.screens.drive.PauseScreen
@@ -72,12 +78,16 @@ data class LaunchRequest(val id: Long = 0, val screen: Screen? = null, val demoO
  *
  * @param driveMode 차량 상태로 정한 주행/정차(AppGraph.driveMode).
  * @param onDemoEvent 디버그 빌드에서만 준다. 책등의 ‘Autography’를 길게 누르면 데모 패널이 열린다.
+ * @param situation 정체·도착 등 상황 트리거. 결정에 따라 제안·미루기·마무리 화면을 연다.
+ * @param playChime 오토가 먼저 말을 걸기 전에 울리는 알림 멜로디.
  */
 @Composable
 fun AutographyApp(
     driveMode: DriveMode,
     launch: LaunchRequest = LaunchRequest(),
     onDemoEvent: ((DemoEvent) -> Unit)? = null,
+    situation: SituationController? = null,
+    playChime: (suspend () -> Unit)? = null,
 ) {
     // 시작 화면은 처음 스택에 바로 넣는다. 창 크기 변경으로 Activity가 다시 만들어져도 저장된 스택을 쓴다.
     val navigator = rememberAppNavigator(launch.screen)
@@ -86,6 +96,37 @@ fun AutographyApp(
     // 주행 상태가 바뀌거나 맞지 않는 화면이 열리면 그 상태의 홈으로 보낸다.
     LaunchedEffect(driveMode, navigator.current) { navigator.syncWithDriveMode(driveMode) }
     var demoPanelOpen by remember { mutableStateOf(false) }
+
+    // 상황 트리거: 지금 화면을 알리고, 결정을 화면 전환으로 옮긴다.
+    LaunchedEffect(navigator.current, situation) {
+        situation?.onScreen(
+            interviewActive = navigator.current == Screen.Interview || navigator.current == Screen.ListenDrive,
+            nudgeVisible = navigator.current == Screen.Nudge,
+        )
+    }
+    LaunchedEffect(situation) {
+        situation?.actions?.collect { action ->
+            when (action) {
+                is TriggerAction.Nudge -> {
+                    // 혼자 운전하던 사람이 놀라지 않게 멜로디를 먼저 울린다.
+                    playChime?.invoke()
+                    navigator.navigate(Screen.Nudge)
+                }
+                TriggerAction.Defer -> navigator.navigate(Screen.Driving)
+                is TriggerAction.WrapUp -> navigator.navigate(Screen.Pause)
+                TriggerAction.CloseNudge -> if (navigator.current == Screen.Nudge) navigator.navigate(Screen.Driving)
+                TriggerAction.SuggestRest -> Unit
+            }
+        }
+    }
+    val navi = situation?.navi?.collectAsState()?.value
+    val nudgeReason = situation?.nudgeReason?.collectAsState()?.value
+    val notice = situation?.notice?.collectAsState()?.value
+    val driveSituation = DriveSituation(
+        minutesToArrival = navi?.minutesToArrival ?: DemoData.drive.minutesToArrival,
+        nudgeReason = nudgeReason ?: NudgeReason.CONGESTION,
+        notice = notice,
+    )
 
     BoxWithConstraints(
         Modifier
@@ -97,25 +138,27 @@ fun AutographyApp(
         val twoPane = maxWidth.value / scale >= TWO_PANE_MIN_WIDTH
 
         AutographyTheme(designScale = scale, driveMode = driveMode, demoOptions = launch.demoOptions) {
-            if (navigator.current == Screen.Pause) {
-                ScreenContent(Screen.Pause, navigator, Modifier.fillMaxSize())
-            } else {
-                CompositionLocalProvider(LocalShowStatusChip provides !twoPane) {
-                    AppPanes(
-                        navigator = navigator,
-                        driveMode = driveMode,
-                        twoPane = twoPane,
-                        onLogoLongPress = onDemoEvent?.let { { demoPanelOpen = !demoPanelOpen } },
+            CompositionLocalProvider(LocalDriveSituation provides driveSituation) {
+                if (navigator.current == Screen.Pause) {
+                    ScreenContent(Screen.Pause, navigator, Modifier.fillMaxSize())
+                } else {
+                    CompositionLocalProvider(LocalShowStatusChip provides !twoPane) {
+                        AppPanes(
+                            navigator = navigator,
+                            driveMode = driveMode,
+                            twoPane = twoPane,
+                            onLogoLongPress = onDemoEvent?.let { { demoPanelOpen = !demoPanelOpen } },
+                        )
+                    }
+                    if (twoPane) WindowStatusChip(navigator.current, driveMode, Modifier.align(Alignment.TopEnd))
+                }
+                if (onDemoEvent != null && demoPanelOpen) {
+                    DemoPanel(
+                        onEvent = onDemoEvent,
+                        onClose = { demoPanelOpen = false },
+                        modifier = Modifier.align(Alignment.BottomStart),
                     )
                 }
-                if (twoPane) WindowStatusChip(navigator.current, driveMode, Modifier.align(Alignment.TopEnd))
-            }
-            if (onDemoEvent != null && demoPanelOpen) {
-                DemoPanel(
-                    onEvent = onDemoEvent,
-                    onClose = { demoPanelOpen = false },
-                    modifier = Modifier.align(Alignment.BottomStart),
-                )
             }
         }
     }

@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import com.pleosautography.app.data.demo.ChapterStatus
 import com.pleosautography.app.data.demo.DemoData
+import com.pleosautography.app.domain.trigger.NudgeReason
 import com.pleosautography.app.ui.components.PillButton
 import com.pleosautography.app.ui.components.ProgressBar
 import com.pleosautography.app.ui.components.RingTimer
@@ -44,6 +45,7 @@ const val NUDGE_TIMEOUT_SECONDS = 5
 fun NudgeScreen(onAccept: () -> Unit, onLater: () -> Unit, modifier: Modifier = Modifier) {
     val chapter = DemoData.chapters.first { it.status == ChapterStatus.WRITING }
     val percent = (chapter.progress * 100).roundToInt()
+    val reason = LocalDriveSituation.current.nudgeReason
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -51,10 +53,14 @@ fun NudgeScreen(onAccept: () -> Unit, onLater: () -> Unit, modifier: Modifier = 
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.px)) {
             StatusChip("알림 멜로디", filled = true, sizePx = 22f, icon = AutoIcons.Note)
-            StatusChip("정체 구간 ${DemoData.drive.congestionMinutes}분째", sizePx = 22f)
+            StatusChip(reason.chip(), sizePx = 22f)
         }
         RuledText(
-            text = "지난번 ‘${chapter.title}’ 이야기,\n이어서 해 볼까요?\n조금만 더 채워 주시면\n이 챕터가 완성돼요!",
+            text = if (reason == NudgeReason.RESUME) {
+                "복잡한 구간을 지났어요.\n아까 ‘${chapter.title}’ 이야기,\n이어서 해 볼까요?"
+            } else {
+                "지난번 ‘${chapter.title}’ 이야기,\n이어서 해 볼까요?\n조금만 더 채워 주시면\n이 챕터가 완성돼요!"
+            },
             spec = Suggestion,
             modifier = Modifier
                 .padding(top = 150.px)
@@ -113,4 +119,10 @@ fun NudgeScreen(onAccept: () -> Unit, onLater: () -> Unit, modifier: Modifier = 
             )
         }
     }
+}
+
+private fun NudgeReason.chip(): String = when (this) {
+    NudgeReason.CONGESTION -> "정체 구간 ${DemoData.drive.congestionMinutes}분째"
+    NudgeReason.STRAIGHT -> "긴 직진 ${DemoData.drive.congestionMinutes}분째"
+    NudgeReason.RESUME -> "다시 이어 하기"
 }

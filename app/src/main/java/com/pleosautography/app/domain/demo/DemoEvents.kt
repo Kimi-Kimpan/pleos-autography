@@ -15,7 +15,7 @@ enum class DemoEvent(val id: String, val label: String) {
     PARK("park", "정차 (P)"),
     REAL_VEHICLE("real", "실제 차량 값"),
 
-    // 마일스톤 6(상황 트리거)에서 처리한다.
+    // 상황 트리거(SituationController가 처리)
     CONGESTION_15("congestion15", "정체 15분"),
     STRAIGHT_15("straight15", "긴 직진 15분"),
     COMPLEX_START("complex_start", "복잡 구간 시작"),
