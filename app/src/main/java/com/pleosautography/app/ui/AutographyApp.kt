@@ -44,6 +44,7 @@ import com.pleosautography.app.ui.screens.LocalLiveProgress
 import com.pleosautography.app.ui.screens.LocalRadioPlayback
 import com.pleosautography.app.ui.screens.PlaceholderScreen
 import com.pleosautography.app.ui.screens.drive.ListenDriveScreen
+import com.pleosautography.app.ui.screens.onboarding.OnboardingScreen
 import com.pleosautography.app.ui.screens.player.PlayerScreen
 import com.pleosautography.app.ui.screens.script.ScriptScreen
 import com.pleosautography.app.ui.screens.settings.SettingsScreen
@@ -255,14 +256,19 @@ private fun AppPanes(
     twoPane: Boolean,
     onLogoLongPress: (() -> Unit)?,
 ) {
+    val onboarding = navigator.current in ONBOARDING
     Row(Modifier.fillMaxSize()) {
         Spine(
             bookTitle = DemoData.BOOK_TITLE,
             onSettings = { navigator.navigate(Screen.Settings) },
             onLogoLongPress = onLogoLongPress,
             settingsOpen = navigator.current == Screen.Settings,
+            settingsEnabled = !onboarding,
         )
-        if (twoPane && driveMode == DriveMode.DRIVING) {
+        if (onboarding) {
+            // 첫 실행은 가로 전체 창에서도 한 칸으로 연다.
+            ScreenContent(navigator.current, navigator, Modifier.weight(1f))
+        } else if (twoPane && driveMode == DriveMode.DRIVING) {
             val talking = navigator.current.takeIf { it.driving } ?: Screen.Driving
             ScreenContent(talking, navigator, Modifier.width(FULL_LEFT_PANE_WIDTH.px), fullWindow = true)
             VLine(color = AutoColors.Ink)
@@ -359,6 +365,15 @@ private fun ScreenContent(
             modifier = modifier,
             showHome = !fullWindow,
         )
+        Screen.Onboarding, Screen.Onboarding2, Screen.Onboarding3 -> {
+            val step = ONBOARDING.indexOf(screen)
+            OnboardingScreen(
+                step = step + 1,
+                onPrevious = { navigator.back() },
+                onNext = { ONBOARDING.getOrNull(step + 1)?.let(navigator::navigate) ?: navigator.reset(Screen.Main) },
+                modifier = modifier,
+            )
+        }
         Screen.Complete -> CompleteScreen(
             onPublish = { navigator.navigate(Screen.Settings) },
             onHome = { navigator.navigate(Screen.Main) },
@@ -405,3 +420,6 @@ private fun WindowStatusChip(current: Screen, driveMode: DriveMode, modifier: Mo
         modifier = modifier.padding(top = 36.px, end = 40.px),
     )
 }
+
+/** 첫 실행 세 단계(순서대로). */
+private val ONBOARDING = listOf(Screen.Onboarding, Screen.Onboarding2, Screen.Onboarding3)

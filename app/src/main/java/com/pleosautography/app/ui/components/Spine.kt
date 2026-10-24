@@ -41,6 +41,7 @@ import com.pleosautography.app.ui.theme.px
  * 위에는 자서전 제목을 세로로, 아래에는 ‘Autography’ 로고와 설정 버튼(주행 중 비활성)을 둔다.
  * @param onLogoLongPress 디버그 빌드에서만: 로고를 길게 누르면 데모 패널을 연다.
  * @param settingsOpen 환경설정 화면이 열려 있으면 설정 버튼을 꽉 찬 원으로 그린다.
+ * @param settingsEnabled 첫 실행 화면처럼 설정을 열 수 없는 화면이면 false.
  */
 @Composable
 fun Spine(
@@ -49,6 +50,7 @@ fun Spine(
     modifier: Modifier = Modifier,
     onLogoLongPress: (() -> Unit)? = null,
     settingsOpen: Boolean = false,
+    settingsEnabled: Boolean = true,
 ) {
     Row(modifier.fillMaxHeight().width(72.px)) {
         Column(
@@ -78,7 +80,7 @@ fun Spine(
                             },
                         ),
                 )
-                SettingsButton(onSettings, settingsOpen)
+                SettingsButton(onSettings, settingsOpen, settingsEnabled)
             }
         }
         VLine(color = AutoColors.Ink)
@@ -103,8 +105,8 @@ private fun StackedTitle(title: String) {
 }
 
 @Composable
-private fun SettingsButton(onClick: () -> Unit, open: Boolean) {
-    val enabled = LocalDriveMode.current == DriveMode.PARKED
+private fun SettingsButton(onClick: () -> Unit, open: Boolean, allowed: Boolean) {
+    val enabled = allowed && LocalDriveMode.current == DriveMode.PARKED
     Box(
         modifier = Modifier
             .size(52.px)
