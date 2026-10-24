@@ -27,3 +27,6 @@ secrets.properties
 /design/reference/
 # 시작 패키지 사본(루트의 docs/·design/·CLAUDE.md와 내용 동일)
 /pleos-autography/
+
+# 시안 전달용 압축 파일
+*.zip
