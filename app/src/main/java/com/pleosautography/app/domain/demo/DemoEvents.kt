@@ -28,6 +28,7 @@ enum class DemoEvent(val id: String, val label: String) {
     SAY_YES("yes", "“응”"),
     SAY_STOP("stop", "“오토야, 잠깐만”"),
     SAY_WHATS_UP("whatsup", "“오토야, 뭐해?”"),
+    SAY_LISTEN("listen", "“들려줘”"),
     ANSWER_DONE("answer", "말 끝내기"),
 
     // 챕터를 다 채운 뒤
@@ -58,6 +59,7 @@ class DemoEvents(
             DemoEvent.SAY_YES -> speech.inject("응")
             DemoEvent.SAY_STOP -> speech.inject("오토야, 잠깐만")
             DemoEvent.SAY_WHATS_UP -> speech.inject("오토야, 뭐해?")
+            DemoEvent.SAY_LISTEN -> speech.inject("오토야, 이 이야기 들려줘")
             DemoEvent.ANSWER_DONE, DemoEvent.MORE -> speech.finishNow()
             DemoEvent.FINISH -> interview.finishChapter(startNext = false)
             else -> Unit

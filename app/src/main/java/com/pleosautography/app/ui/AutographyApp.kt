@@ -43,6 +43,8 @@ import com.pleosautography.app.ui.screens.LocalInterviewUi
 import com.pleosautography.app.ui.screens.LocalLiveProgress
 import com.pleosautography.app.ui.screens.LocalRadioPlayback
 import com.pleosautography.app.ui.screens.PlaceholderScreen
+import com.pleosautography.app.ui.screens.drive.ListenDriveScreen
+import com.pleosautography.app.ui.screens.script.ScriptScreen
 import com.pleosautography.app.ui.screens.drive.DriveSituation
 import com.pleosautography.app.ui.screens.drive.DrivingScreen
 import com.pleosautography.app.ui.screens.drive.ChapterFullActions
@@ -149,7 +151,14 @@ fun AutographyApp(
         services?.speechInput?.utterances?.collect { text ->
             when (VoiceCommand.parse(text)) {
                 VoiceCommand.ACCEPT -> if (navigator.current == Screen.Nudge) navigator.reset(Screen.Interview)
-                VoiceCommand.STOP -> if (navigator.current == Screen.Interview) stopInterview()
+                VoiceCommand.STOP -> when (navigator.current) {
+                    Screen.Interview -> stopInterview()
+                    Screen.ListenDrive -> navigator.navigate(if (navigator.backStack.contains(Screen.Main)) Screen.Main else Screen.Driving)
+                    else -> Unit
+                }
+                VoiceCommand.LISTEN -> if (navigator.current == Screen.Driving || navigator.current == Screen.Main) {
+                    if (navigator.current == Screen.Main) navigator.openFromMain(Screen.ListenDrive) else navigator.navigate(Screen.ListenDrive)
+                }
                 VoiceCommand.WHATS_UP -> if (navigator.current.drivingOnly || navigator.current == Screen.Main) {
                     val title = InterviewSession.titleOf(latestBook.current)
                     pendingIntro = "‘$title’ 부분을 다듬고 있었어요. 여기에 대해 조금 더 이야기해 주시겠어요?"
@@ -317,6 +326,22 @@ private fun ScreenContent(
                     if (navigator.backStack.contains(Screen.Main)) navigator.openFromMain(Screen.Script) else navigator.navigate(Screen.Script)
                 },
             ),
+            modifier = modifier,
+        )
+        Screen.Script -> ScriptScreen(
+            onHome = { navigator.navigate(Screen.Main) },
+            onContinueWriting = {
+                if (navigator.backStack.contains(Screen.Main)) navigator.openFromMain(Screen.Interview) else navigator.navigate(Screen.Interview)
+            },
+            onListenFromStart = {
+                if (navigator.backStack.contains(Screen.Main)) navigator.openFromMain(Screen.Player) else navigator.navigate(Screen.Player)
+            },
+            modifier = modifier,
+            showHome = !fullWindow,
+        )
+        Screen.ListenDrive -> ListenDriveScreen(
+            onStopHere = { navigator.navigate(if (navigator.backStack.contains(Screen.Main)) Screen.Main else Screen.Driving) },
+            onCallOto = {},
             modifier = modifier,
         )
         Screen.Complete -> CompleteScreen(

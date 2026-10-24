@@ -40,6 +40,8 @@ object AutoIcons {
         fill("M12 3a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z")
         stroke("M6 11a6 6 0 0 0 12 0M12 17v4", 2f)
     }
+    /** 원고 보기 안내: 위로 고르는 화살표와 두 줄. */
+    val Select = icon("Select") { stroke("M7 4v9M7 4l3 3M7 4L4 7M12 20h8M12 15h8", 2f, cap = StrokeCap.Round, join = StrokeJoin.Round) }
     val Rewind = icon("Rewind") { stroke("M5 12a7 7 0 1 0 2-5M5 4v4h4", 2.2f) }
     val Search = icon("Search") {
         stroke("M17.5 11a6.5 6.5 0 1 1-13 0a6.5 6.5 0 1 1 13 0z", 2.4f)

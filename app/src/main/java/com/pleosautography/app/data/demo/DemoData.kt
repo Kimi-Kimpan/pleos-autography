@@ -41,6 +41,19 @@ object DemoData {
     /** 오토그래피 라디오: 지금 재생 중인 이야기와 다음으로 들을 이야기(주행 중에는 2편 고정). */
     val radio = RadioDemo()
 
+    /**
+     * 예시 원고(시안 Script·ListenDrive). 답변을 원고 문장으로 정리하는 일은 2단계(AI)라,
+     * MVP는 이 예시 문단 뒤에 저장된 답변을 그대로 문단으로 잇는다.
+     */
+    val manuscript = listOf(
+        ManuscriptParagraph("스물아홉에 처음 운전대를 잡았습니다. 새벽 네 시가 이렇게 조용한 줄 몰랐어요."),
+        ManuscriptParagraph("시동을 걸자마자 손이 떨렸죠. 1988년 겨울, 아내가 보온병에 커피를 타 줬습니다.", highlight = "1988년 겨울"),
+        ManuscriptParagraph("첫 손님은 시장에 가던 아주머니였어요. “기사 양반, 첫날이지?” 하시더군요."),
+    )
+
+    /** 원고 듣기·고치기 시연: 낭독 중 연도를 말로 고친다. */
+    val listenFix = ListenFixDemo()
+
     /** 내 자서전 요약. */
     val book = BookDemo()
 }
@@ -81,4 +94,20 @@ data class BookDemo(
     val progress: Float = 0.18f,
     val currentQuestion: Int = 4,
     val currentQuestionTotal: Int = 7,
+)
+
+/** 원고 한 문단. [highlight]는 길게 눌러 고를 때 강조할 구절(시안). */
+data class ManuscriptParagraph(val text: String, val highlight: String? = null)
+
+data class ListenFixDemo(
+    val elapsed: String = "04:12",
+    val duration: String = "11:30",
+    val position: Float = 0.38f,
+    val previous: String = "스물아홉에 처음 운전대를 잡았습니다. 새벽 네 시가 이렇게 조용한 줄 몰랐어요.",
+    val sentenceBefore: String = "시동을 걸자마자 손이 떨렸죠. ",
+    val wrong: String = "1988년",
+    val fixed: String = "1987년",
+    val sentenceAfter: String = " 겨울, 아내가 보온병에 커피를 타 줬습니다.",
+    val userSaid: String = "오토야, 방금 거기 고치자.\n1988년이 아니라 1987년이었어.",
+    val otoReply: String = "‘1987년 겨울’로 고쳤어요.\n이어서 읽어 드릴게요.",
 )

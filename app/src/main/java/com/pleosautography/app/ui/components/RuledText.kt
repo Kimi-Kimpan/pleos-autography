@@ -11,6 +11,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextAlign
@@ -27,6 +28,17 @@ private val KoreanLineBreak = LineBreak(LineBreak.Strategy.Simple, LineBreak.Str
 @Composable
 fun RuledText(
     text: String,
+    spec: TextSpec,
+    modifier: Modifier = Modifier,
+    color: Color = AutoColors.Ink,
+    ruleColor: Color = AutoColors.Ruled,
+    textAlign: TextAlign = TextAlign.Start,
+) = RuledText(AnnotatedString(text), spec, modifier, color, ruleColor, textAlign)
+
+/** 문장 일부에 취소선·강조를 넣을 때(원고 고치기). */
+@Composable
+fun RuledText(
+    text: AnnotatedString,
     spec: TextSpec,
     modifier: Modifier = Modifier,
     color: Color = AutoColors.Ink,

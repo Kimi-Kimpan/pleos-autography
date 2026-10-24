@@ -89,6 +89,9 @@ class AutographyRepository(private val db: AppDatabase, private val assets: Asse
         )
     }
 
+    /** 챕터의 답변(원고 문단). 덧붙인 이야기도 포함한다. */
+    fun observeAnswers(chapter: Int): Flow<List<AnswerEntity>> = db.answers().observeChapter(chapter)
+
     /** 마무리한 챕터 번호들. */
     fun observeDoneChapters(): Flow<Set<Int>> = db.chapters().observeDone().map { it.toSet() }
 

@@ -55,6 +55,7 @@ class MainActivity : ComponentActivity() {
                 graph.repository.observeStoriesByChapter(),
                 graph.repository.observeBookStats(),
             ) { current, done, stories, stats -> BookState(current, done, stories, stats) },
+            answersFor = graph.repository::observeAnswers,
             playChime = { graph.radioAudio.ducking { graph.chime.play() } },
             setTalking = graph.radioAudio::setTalking,
         )

@@ -41,14 +41,20 @@ import com.pleosautography.app.ui.theme.px
 import kotlin.math.ceil
 
 /**
- * 주행 홈의 큰 마이크: 220px 파란 원 + 40px 후광. 주행 중 자동 애니메이션을 줄이기 위해 움직이는 효과는 없다.
+ * 주행 홈의 큰 마이크: 220px 파란 원 + 40px 후광(원고 듣기 화면은 140·26). 주행 중 자동 애니메이션을 줄이기 위해 움직이는 효과는 없다.
  */
 @Composable
-fun BigMicButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val halo = 40.px
+fun BigMicButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    sizePx: Float = 220f,
+    haloPx: Float = 40f,
+    iconSizePx: Float = 88f,
+) {
+    val halo = haloPx.px
     Box(
         modifier = modifier
-            .size(220.px)
+            .size(sizePx.px)
             .drawBehind {
                 drawCircle(AutoColors.MicHalo, radius = size.minDimension / 2 + halo.toPx())
             }
@@ -61,7 +67,7 @@ fun BigMicButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
             painter = rememberVectorPainter(AutoIcons.MicFilled),
             contentDescription = "오토 호출",
             colorFilter = ColorFilter.tint(AutoColors.OnInk),
-            modifier = Modifier.size(88.px),
+            modifier = Modifier.size(iconSizePx.px),
         )
     }
 }
