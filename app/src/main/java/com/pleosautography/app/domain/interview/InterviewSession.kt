@@ -16,7 +16,10 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -72,19 +75,26 @@ class InterviewSession(
     private val eventFlow = MutableSharedFlow<InterviewEvent>(extraBufferCapacity = 4)
     val events: SharedFlow<InterviewEvent> = eventFlow.asSharedFlow()
 
-    private val chapterState = MutableStateFlow(FIRST_WRITING_CHAPTER)
-
-    /** 지금 쓰는 챕터. */
-    val currentChapter: StateFlow<Int> = chapterState.asStateFlow()
+    /** 지금 쓰는 챕터(지금 쓰는 책에 저장된 값). */
+    val currentChapter: StateFlow<Int> = repository.library
+        .map { it?.active?.currentChapter ?: FIRST_WRITING_CHAPTER }
+        .stateIn(scope, SharingStarted.Eagerly, FIRST_WRITING_CHAPTER)
 
     private var job: Job? = null
 
-    /** 인터뷰를 시작한다. 이미 진행 중이면 그대로 둔다. */
-    fun start(intro: String? = null) {
+    /**
+     * 인터뷰를 시작한다. 이미 진행 중이거나 쓰는 책이 없으면 그대로 둔다.
+     * @param chapter 이 챕터로 시작한다(홈에서 다른 챕터를 고른 직후, 저장이 화면보다 늦을 수 있어서 직접 준다).
+     */
+    fun start(intro: String? = null, chapter: Int? = null) {
         if (job?.isActive == true) return
+        val book = repository.activeBook() ?: return
+        launchRun(book.id, chapter ?: book.currentChapter, intro)
+    }
+
+    private fun launchRun(book: Long, chapter: Int, intro: String?) {
         audio.setTalking(true)
-        val chapter = chapterState.value
-        job = scope.launch { run(chapter, intro) }
+        job = scope.launch { run(book, chapter, intro) }
     }
 
     /** 인터뷰를 멈춘다. 답변은 받아 적을 때마다 저장했으므로 따로 저장할 것이 없다. */
@@ -100,18 +110,18 @@ class InterviewSession(
      * @param startNext 다음 챕터 인터뷰를 바로 이어서 시작한다(‘다음 챕터’ 버튼).
      */
     fun finishChapter(startNext: Boolean) {
-        val chapter = chapterState.value
+        val book = repository.activeBook() ?: return
+        val chapter = state.value.chapter.takeIf { it > 0 } ?: book.currentChapter
         job?.cancel()
         job = null
         scope.launch {
-            repository.markChapterDone(chapter)
+            repository.markChapterDone(book.id, chapter)
             // 다음에 쓸 챕터로 넘어간다. ‘다음 챕터’면 바로 인터뷰를 이어 간다.
-            val following = nextChapterAfter(chapter)
-            if (following != null) chapterState.value = following
+            val following = nextChapterAfter(book.id, chapter)
+            if (following != null) repository.setCurrentChapter(book.id, following)
             val next = following.takeIf { startNext }
             if (next != null) {
-                val title = titleOf(next)
-                start(intro = "좋아요. 이번에는 ‘$title’ 이야기를 해 볼까요?")
+                launchRun(book.id, next, intro = "좋아요. 이번에는 ‘${titleOf(next)}’ 이야기를 해 볼까요?")
             } else {
                 // 정차 중이면 같은 화면에 남아 원고를 볼 수 있게, 다 채운 상태로 둔다.
                 state.update { it.copy(phase = InterviewPhase.IDLE, chapter = chapter, chapterFull = true) }
@@ -120,14 +130,14 @@ class InterviewSession(
         }
     }
 
-    private suspend fun run(chapter: Int, intro: String?) {
+    private suspend fun run(book: Long, chapter: Int, intro: String?) {
         var prompt: String? = null
         intro?.let { say(chapter, it, null) }
         while (true) {
-            val progress = repository.observeProgress(chapter).first()
+            val progress = repository.observeProgress(book, chapter).first()
             val question = progress.nextQuestion
             if (question == null) {
-                if (!listenWhenFull(chapter)) return
+                if (!listenWhenFull(book, chapter)) return
                 continue
             }
             val text = prompt ?: question.text
@@ -143,11 +153,11 @@ class InterviewSession(
                 eventFlow.tryEmit(InterviewEvent.StopRequested)
                 return
             }
-            repository.saveAnswer(question, heard.text, heard.durationSec)
+            repository.saveAnswer(book, question, heard.text, heard.durationSec)
             Log.i(TAG, "저장: ${question.id} ${heard.text}")
 
             // 방금 이야기를 받아 되묻는 후속 질문(다음 질문으로 이어진다).
-            val next = repository.observeProgress(chapter).first().nextQuestion
+            val next = repository.observeProgress(book, chapter).first().nextQuestion
             prompt = next?.let { followUps.followUp(question, heard.text, it) }
         }
     }
@@ -156,7 +166,7 @@ class InterviewSession(
      * 질문을 모두 채운 뒤: 안내하고 계속 듣는다. 더 말하면 덧붙인 이야기로 저장한다.
      * @return 계속 들을지. “여기까지”를 들으면 챕터를 마무리하고 false.
      */
-    private suspend fun listenWhenFull(chapter: Int): Boolean {
+    private suspend fun listenWhenFull(book: Long, chapter: Int): Boolean {
         val announce = fullPrompt(chapter)
         if (!state.value.chapterFull) say(chapter, announce, null, prompt = announce, full = true)
         state.value = InterviewUi(InterviewPhase.LISTENING, chapter, announce, chapterFull = true)
@@ -168,7 +178,7 @@ class InterviewSession(
             finishChapter(startNext = false)
             return false
         }
-        repository.saveExtra(chapter, heard.text, heard.durationSec)
+        repository.saveExtra(book, chapter, heard.text, heard.durationSec)
         Log.i(TAG, "덧붙임 저장: $chapter ${heard.text}")
         return true
     }
@@ -178,16 +188,19 @@ class InterviewSession(
         audio.ducking { output.speak(text.replace('\n', ' ')) }
     }
 
-    private suspend fun nextChapterAfter(chapter: Int): Int? {
-        val candidate = chapter + 1
-        return candidate.takeIf { repository.observeProgress(it).first().total > 0 }
+    /** 다음에 쓸 챕터: 뒤쪽부터, 질문 은행이 있고 아직 마무리하지 않은 챕터. 모두 마쳤으면 null. */
+    private suspend fun nextChapterAfter(book: Long, chapter: Int): Int? {
+        val done = repository.doneChapters(book) + chapter
+        val order = ((chapter + 1)..LAST_CHAPTER) + (1 until chapter)
+        return order.firstOrNull { it !in done && repository.questionCount(it) > 0 }
     }
 
     companion object {
         private const val TAG = "InterviewSession"
 
-        /** 시연에서 처음 쓰는 챕터(2장 ‘첫 차’). Book·Chapter 테이블이 생기면 저장된 값을 읽는다. */
+        /** 책을 읽기 전 기본으로 보일 챕터(2장 ‘첫 차’, 첫 실행의 기본 선택). */
         const val FIRST_WRITING_CHAPTER = 2
+        const val LAST_CHAPTER = 12
 
         fun titleOf(chapter: Int): String = DemoData.chapters.firstOrNull { it.number == chapter }?.title ?: "${chapter}장"
 

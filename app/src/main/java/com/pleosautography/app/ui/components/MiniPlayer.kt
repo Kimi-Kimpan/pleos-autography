@@ -16,7 +16,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
-import com.pleosautography.app.data.demo.NowPlaying
+import androidx.compose.runtime.ReadOnlyComposable
+import com.pleosautography.app.ui.LocalAppServices
+import com.pleosautography.app.ui.screens.LocalRadioState
 import com.pleosautography.app.domain.DriveMode
 import com.pleosautography.app.ui.icons.AutoIcons
 import com.pleosautography.app.ui.screens.LocalRadioPlayback
@@ -27,18 +29,20 @@ import com.pleosautography.app.ui.theme.TextSpec
 import com.pleosautography.app.ui.theme.px
 
 /**
- * 하단 미니 플레이어(위에 파란 2px 선 포함).
+ * 하단 미니 플레이어(위에 파란 2px 선 포함). 오토그래피 라디오의 지금 편을 보이고 조작한다.
  * 일시정지·다음은 주행 중에도 쓰고, 펼치기(⌃)는 정차 중에만 쓴다.
  * @param pausedForInterview 인터뷰가 열려 라디오를 잠시 멈춘 상태(재생 버튼과 “인터뷰 중 잠시 멈춤”).
  */
 @Composable
 fun MiniPlayer(
-    nowPlaying: NowPlaying,
     onExpand: () -> Unit,
     modifier: Modifier = Modifier,
-    pausedForInterview: Boolean = false,
+    pausedForInterview: Boolean = LocalRadioPlayback.current.paused,
 ) {
     val parked = LocalDriveMode.current == DriveMode.PARKED
+    val radio = LocalRadioState.current
+    val player = LocalAppServices.current?.radioPlayer
+    val playing = radioPlaying()
     Column(modifier) {
         HLine(color = AutoColors.Ink)
         Row(
@@ -67,23 +71,24 @@ fun MiniPlayer(
                         pausedForInterview -> "오토그래피 라디오 · 인터뷰 중 잠시 멈춤"
                         // 알림 멜로디·오토 발화 중에는 소리를 줄인다.
                         LocalRadioPlayback.current.ducked -> "오토그래피 라디오 · 소리 줄임"
-                        else -> nowPlaying.label
+                        radio.userPaused -> "오토그래피 라디오 · 일시정지"
+                        else -> "오토그래피 라디오 · 재생 중"
                     },
                     AutoType.PlayerLabel,
                     AutoColors.InkSecondary,
                 )
-                SingleLine(nowPlaying.title, AutoType.PlayerTitle, AutoColors.Ink)
-                SingleLine(nowPlaying.meta, AutoType.PlayerMeta, AutoColors.InkSecondary)
+                SingleLine(radio.episode.title, AutoType.PlayerTitle, AutoColors.Ink)
+                SingleLine(radio.episode.narrator, AutoType.PlayerMeta, AutoColors.InkSecondary)
             }
             CircleIconButton(
-                if (pausedForInterview) AutoIcons.Play else AutoIcons.Pause,
-                if (pausedForInterview) "재생" else "일시정지",
-                onClick = {},
+                if (playing) AutoIcons.Pause else AutoIcons.Play,
+                if (playing) "일시정지" else "재생",
+                onClick = { player?.togglePlay() },
                 sizePx = 92f,
                 iconSizePx = 34f,
                 borderPx = 3.5f,
             )
-            CircleIconButton(AutoIcons.Next, "다음 이야기", onClick = {})
+            CircleIconButton(AutoIcons.Next, "다음 이야기", onClick = { player?.next() })
             VLine(Modifier.height(64.px), color = AutoColors.Line)
             CircleIconButton(
                 AutoIcons.ChevronUp,
@@ -95,6 +100,11 @@ fun MiniPlayer(
         }
     }
 }
+
+/** 라디오가 지금 흐르는지(운전자 일시정지도, 인터뷰 중 멈춤도 아닐 때). */
+@Composable
+@ReadOnlyComposable
+fun radioPlaying(): Boolean = !LocalRadioState.current.userPaused && !LocalRadioPlayback.current.paused
 
 /** 한 줄, 넘치면 말줄임. */
 @Composable

@@ -44,6 +44,8 @@ class SituationController(
     private val vehicle: DemoVehicleState,
     private val fakeNavi: FakeNaviState,
     demoEvents: SharedFlow<DemoEvent>,
+    /** 환경설정 ‘오토가 먼저 말 걸기’. */
+    private val proactiveTalk: () -> Boolean = { true },
     private val clock: AppClock = AppClock(),
     private val engine: TriggerEngine = TriggerEngine(),
 ) {
@@ -98,6 +100,7 @@ class SituationController(
                 navi = fakeNavi.snapshot.value,
                 interviewActive = interviewActive,
                 nudgeVisible = nudgeVisible,
+                proactiveTalk = proactiveTalk(),
             ),
         )
         actions.forEach { action ->

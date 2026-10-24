@@ -12,17 +12,12 @@ data class ChapterSummary(
     val lastStory: String? = null,
 )
 
-data class NowPlaying(val label: String, val title: String, val meta: String)
-
-/** 마일스톤 1~2용 데모 데이터. 마일스톤 4에서 Room 저장소로 바뀐다. */
+/** 시연용 고정 데이터(챕터 제목, 주행 화면 기본값, 라디오 목록, 예시 원고). 책·답변은 Room 저장소에서 읽는다. */
 object DemoData {
-    const val OWNER_CALL_NAME = "○○"
-    const val BOOK_TITLE = "김○○의 자서전"
-
     // 07~12장 제목은 질문 은행 파일에서 정한다(마일스톤 4).
     val chapters = listOf(
-        ChapterSummary(1, "나의 뿌리", ChapterStatus.DONE, storyCount = 6, progress = 1f),
-        ChapterSummary(2, "첫 차", ChapterStatus.WRITING, storyCount = 3, progress = 0.62f, lastStory = "처음 운전대를 잡은 날"),
+        ChapterSummary(1, "나의 뿌리", ChapterStatus.NOT_STARTED),
+        ChapterSummary(2, "첫 차", ChapterStatus.NOT_STARTED),
         ChapterSummary(3, "일과 생계", ChapterStatus.NOT_STARTED),
         ChapterSummary(4, "가족", ChapterStatus.NOT_STARTED),
         ChapterSummary(5, "길 위에서 만난 사람들", ChapterStatus.NOT_STARTED),
@@ -31,12 +26,6 @@ object DemoData {
 
     /** 주행 화면 데모 값(마일스톤 6에서 NaviState·VehicleState가 정한다). */
     val drive = DriveDemo()
-
-    val nowPlaying = NowPlaying(
-        label = "오토그래피 라디오 · 재생 중",
-        title = "짐칸 가득, 하루치의 삶",
-        meta = "이○○ 기사님 · 1톤 화물차 18년",
-    )
 
     /** 오토그래피 라디오: 지금 재생 중인 이야기와 다음으로 들을 이야기(주행 중에는 2편 고정). */
     val radio = RadioDemo()
@@ -50,12 +39,6 @@ object DemoData {
         ManuscriptParagraph("시동을 걸자마자 손이 떨렸죠. 1988년 겨울, 아내가 보온병에 커피를 타 줬습니다.", highlight = "1988년 겨울"),
         ManuscriptParagraph("첫 손님은 시장에 가던 아주머니였어요. “기사 양반, 첫날이지?” 하시더군요."),
     )
-
-    /** 원고 듣기·고치기 시연: 낭독 중 연도를 말로 고친다. */
-    val listenFix = ListenFixDemo()
-
-    /** 내 자서전 요약. */
-    val book = BookDemo()
 }
 
 /** 주행 흐름(주행 홈 → 제안 → 인터뷰 → 도착 전 마무리)의 데모 값. */
@@ -69,48 +52,39 @@ data class DriveDemo(
     val pauseQuestionNumber: Int = 6,
 )
 
-data class RadioEpisode(val title: String, val narrator: String, val tag: String)
+/**
+ * 오토그래피 라디오 이야기 한 편.
+ * @param volume 표지에 쓰는 권·챕터 표시.
+ */
+data class RadioEpisode(
+    val title: String,
+    val narrator: String,
+    val tag: String,
+    val volume: String = "",
+    val durationSec: Int = 0,
+)
 
+/**
+ * 오토그래피 라디오 시연 데이터. 재생 목록을 차례로 돌고, 처음에는 첫 편 [startSec]부터 재생한다.
+ * 다음으로 들을 이야기는 지금 편 뒤 2편이다(주행 중에도 2편 고정).
+ */
 data class RadioDemo(
     val nowPlayingLabel: String = "지금 재생 중 · 오토 목소리 낭독",
-    val title: String = "짐칸 가득, 하루치의 삶",
-    val narrator: String = "이○○ 기사님 · 1톤 화물차 18년 차",
-    val coverVolume: String = "VOL. 01 · 일과 생계",
-    val elapsed: String = "12:40",
-    val duration: String = "18:05",
-    val position: Float = 0.70f,
+    val playlist: List<RadioEpisode> = listOf(
+        RadioEpisode("짐칸 가득, 하루치의 삶", "이○○ 기사님 · 1톤 화물차 18년 차", "화물 · 택배", "VOL. 01 · 일과 생계", 18 * 60 + 5),
+        RadioEpisode("새벽 4시, 첫 손님", "김○○ 기사님 · 개인택시 22년 차", "택시", "VOL. 02 · 첫 차", 14 * 60 + 30),
+        RadioEpisode("국경을 세 번 넘은 밤", "Marek K. 기사님 · 엑시언트 장거리 · 폴란드", "해외 · 번역", "VOL. 06 · 가장 길었던 밤", 21 * 60 + 12),
+        RadioEpisode("시장 골목 첫 배달", "박○○ 사장님 · 다마스 12년 차", "자영업", "VOL. 03 · 일과 생계", 11 * 60 + 48),
+    ),
+    val startSec: Int = 12 * 60 + 40,
     val genres: List<String> = listOf("전체", "택시", "화물 · 택배", "자영업", "장거리"),
     /** 정차 중 플레이어는 칸이 넓어 장르를 하나 더 보인다. */
     val moreGenres: List<String> = listOf("해외 · 번역"),
     val favoriteCount: Int = 12,
-    val upNext: List<RadioEpisode> = listOf(
-        RadioEpisode("새벽 4시, 첫 손님", "김○○ 기사님 · 개인택시 22년 차", "택시"),
-        RadioEpisode("국경을 세 번 넘은 밤", "Marek K. 기사님 · 엑시언트 장거리 · 폴란드", "해외 · 번역"),
-    ),
 )
 
-data class BookDemo(
-    val storyCount: Int = 9,
-    val conversationCount: Int = 31,
-    val totalChapters: Int = 12,
-    val doneChapters: Int = 2,
-    val progress: Float = 0.18f,
-    val currentQuestion: Int = 4,
-    val currentQuestionTotal: Int = 7,
-)
-
-/** 원고 한 문단. [highlight]는 길게 눌러 고를 때 강조할 구절(시안). */
-data class ManuscriptParagraph(val text: String, val highlight: String? = null)
-
-data class ListenFixDemo(
-    val elapsed: String = "04:12",
-    val duration: String = "11:30",
-    val position: Float = 0.38f,
-    val previous: String = "스물아홉에 처음 운전대를 잡았습니다. 새벽 네 시가 이렇게 조용한 줄 몰랐어요.",
-    val sentenceBefore: String = "시동을 걸자마자 손이 떨렸죠. ",
-    val wrong: String = "1988년",
-    val fixed: String = "1987년",
-    val sentenceAfter: String = " 겨울, 아내가 보온병에 커피를 타 줬습니다.",
-    val userSaid: String = "오토야, 방금 거기 고치자.\n1988년이 아니라 1987년이었어.",
-    val otoReply: String = "‘1987년 겨울’로 고쳤어요.\n이어서 읽어 드릴게요.",
-)
+/**
+ * 원고 한 문단. [highlight]는 길게 눌러 고를 때 강조할 구절(시안).
+ * @param answerId 저장된 답변이면 그 id(예시 원고는 null).
+ */
+data class ManuscriptParagraph(val text: String, val highlight: String? = null, val answerId: Long? = null)

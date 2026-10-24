@@ -36,6 +36,7 @@ sealed interface TriggerAction {
  * 트리거 판단 입력 한 순간.
  * @param interviewActive 인터뷰(또는 원고 듣기)가 열려 있는지.
  * @param nudgeVisible 제안 화면이 떠 있는지.
+ * @param proactiveTalk 환경설정 ‘오토가 먼저 말 걸기’. 끄면 정체·직진 제안을 하지 않는다(미룬 대화 다시 제안·마무리·휴식은 그대로).
  */
 data class TriggerInput(
     val nowMs: Long,
@@ -44,6 +45,7 @@ data class TriggerInput(
     val navi: NaviSnapshot,
     val interviewActive: Boolean,
     val nudgeVisible: Boolean,
+    val proactiveTalk: Boolean = true,
 )
 
 data class TriggerConfig(
@@ -132,7 +134,7 @@ class TriggerEngine(private val config: TriggerConfig = TriggerConfig()) {
 
         // 5) 정체·긴 직진 15분: 인터뷰 중이 아니고 대기 시간이 지났을 때만.
         val coolDownOver = lastNudgeAt?.let { now - it >= config.nudgeCooldownMs } ?: true
-        if (!input.interviewActive && !input.nudgeVisible && coolDownOver) {
+        if (input.proactiveTalk && !input.interviewActive && !input.nudgeVisible && coolDownOver) {
             val reason = when {
                 slowSince?.let { now - it >= config.dwellMs } == true -> NudgeReason.CONGESTION
                 navi.straightSinceMs?.let { now - it >= config.dwellMs } == true -> NudgeReason.STRAIGHT

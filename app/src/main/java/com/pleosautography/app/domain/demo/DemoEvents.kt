@@ -29,11 +29,15 @@ enum class DemoEvent(val id: String, val label: String) {
     SAY_STOP("stop", "“오토야, 잠깐만”"),
     SAY_WHATS_UP("whatsup", "“오토야, 뭐해?”"),
     SAY_LISTEN("listen", "“들려줘”"),
+    SAY_FIX("fix", "“방금 거기 고치자”"),
     ANSWER_DONE("answer", "말 끝내기"),
 
     // 챕터를 다 채운 뒤
     MORE("more", "더 이야기하기"),
     FINISH("finish", "“여기까지” 챕터 마무리"),
+
+    // 시연 준비
+    SETUP("setup", "시연용 자서전 준비"),
     ;
 
     companion object {
@@ -46,6 +50,10 @@ class DemoEvents(
     private val vehicle: DemoVehicleState,
     private val speech: SpeechInput,
     private val interview: InterviewSession,
+    /** 원고 듣기에서 말할 준비된 정정 문장. */
+    private val fixSentence: String,
+    /** 시연용 서재를 만든다(책이 없을 때만). */
+    private val setupDemo: () -> Unit,
 ) {
     private val flow = MutableSharedFlow<DemoEvent>(extraBufferCapacity = 8)
     val events: SharedFlow<DemoEvent> = flow.asSharedFlow()
@@ -60,8 +68,10 @@ class DemoEvents(
             DemoEvent.SAY_STOP -> speech.inject("오토야, 잠깐만")
             DemoEvent.SAY_WHATS_UP -> speech.inject("오토야, 뭐해?")
             DemoEvent.SAY_LISTEN -> speech.inject("오토야, 이 이야기 들려줘")
+            DemoEvent.SAY_FIX -> speech.inject(fixSentence)
             DemoEvent.ANSWER_DONE, DemoEvent.MORE -> speech.finishNow()
             DemoEvent.FINISH -> interview.finishChapter(startNext = false)
+            DemoEvent.SETUP -> setupDemo()
             else -> Unit
         }
         flow.tryEmit(event)

@@ -13,7 +13,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import com.pleosautography.app.data.demo.ChapterStatus
-import com.pleosautography.app.data.demo.DemoData
 import com.pleosautography.app.ui.components.BigMicButton
 import com.pleosautography.app.ui.components.MiniPlayer
 import com.pleosautography.app.ui.components.ProgressBar
@@ -84,6 +83,6 @@ fun DrivingScreen(
                 )
             }
         }
-        if (showMiniPlayer) MiniPlayer(DemoData.nowPlaying, onExpand = onOpenPlayer)
+        if (showMiniPlayer) MiniPlayer(onExpand = onOpenPlayer)
     }
 }

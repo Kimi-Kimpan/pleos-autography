@@ -31,7 +31,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
-import com.pleosautography.app.data.demo.DemoData
+import androidx.compose.runtime.collectAsState
+import com.pleosautography.app.domain.listen.ListenUi
+import com.pleosautography.app.ui.LocalAppServices
+import com.pleosautography.app.ui.screens.LocalBookState
+import com.pleosautography.app.ui.screens.chapterSummary
 import com.pleosautography.app.ui.components.BigMicButton
 import com.pleosautography.app.ui.components.CircleIconButton
 import com.pleosautography.app.ui.components.HLine
@@ -40,7 +44,6 @@ import com.pleosautography.app.ui.components.RuledText
 import com.pleosautography.app.ui.components.ScreenStatusChip
 import com.pleosautography.app.ui.components.StopHereButton
 import com.pleosautography.app.ui.icons.AutoIcons
-import com.pleosautography.app.ui.screens.currentChapter
 import com.pleosautography.app.ui.theme.AutoColors
 import com.pleosautography.app.ui.theme.GowunBatang
 import com.pleosautography.app.ui.theme.TextSpec
@@ -56,13 +59,15 @@ private val TellOto = TextSpec(30f, FontWeight.Bold, GowunBatang, lineHeightPx =
 
 /**
  * 09 원고 듣기·고치기(주행 중). 시안: design/screens/ListenDrive.png
- * 오토가 원고를 읽어 주고, “방금 거기 고치자”로 읽던 문장을 말로 고친다. 고친 자리는 지운 줄 + 파란 칠로 보인다.
- * 지금은 시연 데이터(DemoData.listenFix)로 그리고, 실제 낭독·고치기는 마일스톤 7에서 붙인다.
+ * 오토가 지금 챕터 원고를 문장 단위로 읽어 주고([ListenSession]), “방금 거기 고치자”로 읽던 문장을 말로 고친다.
+ * 고친 자리는 지운 줄 + 파란 칠로 보이고, 고친 문장은 답변에 바로 저장된다(editedAt).
+ * @param onCallOto 마이크: 고칠 내용을 말한다(시연은 준비된 정정 문장).
  */
 @Composable
 fun ListenDriveScreen(onStopHere: () -> Unit, onCallOto: () -> Unit, modifier: Modifier = Modifier) {
-    val chapter = currentChapter()
-    val fix = DemoData.listenFix
+    val services = LocalAppServices.current
+    val ui = services?.listen?.ui?.collectAsState()?.value ?: ListenUi()
+    val chapter = chapterSummary(ui.chapter.takeIf { it > 0 } ?: LocalBookState.current.current)
     Column(modifier.fillMaxSize()) {
         Row(
             modifier = Modifier
@@ -84,51 +89,74 @@ fun ListenDriveScreen(onStopHere: () -> Unit, onCallOto: () -> Unit, modifier: M
             modifier = Modifier.padding(start = 32.px, top = 30.px, end = 32.px, bottom = 26.px),
             verticalArrangement = Arrangement.spacedBy(18.px),
         ) {
-            BasicText("오토가 읽고 있어요 · ${fix.elapsed} / ${fix.duration}", style = Reading.style(AutoColors.InkSecondary))
-            RuledText(fix.previous, Previous, Modifier.fillMaxWidth().alpha(0.45f))
-            RuledText(
-                text = buildAnnotatedString {
-                    append(fix.sentenceBefore)
-                    withStyle(SpanStyle(color = AutoColors.Ink.copy(alpha = 0.5f), textDecoration = TextDecoration.LineThrough)) {
-                        append(fix.wrong)
-                    }
-                    append(" ")
-                    withStyle(SpanStyle(background = AutoColors.Ink, color = AutoColors.OnInk)) { append(fix.fixed) }
-                    append(fix.sentenceAfter)
-                },
-                spec = Current,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            val time = "${formatMs(ui.elapsedMs)} / ${formatMs(ui.totalMs)}"
+            val status = when {
+                ui.sentences.isEmpty() -> "원고를 불러오고 있어요"
+                ui.finished -> "끝까지 읽었어요 · $time"
+                ui.playing -> "오토가 읽고 있어요 · $time"
+                else -> "잠시 멈춤 · $time"
+            }
+            BasicText(status, style = Reading.style(AutoColors.InkSecondary))
+            ui.previous?.let { RuledText(it.text, Previous, Modifier.fillMaxWidth().alpha(0.45f)) }
+            ui.current?.let { sentence ->
+                val fix = ui.fix?.takeIf { it.sentence == ui.index }
+                RuledText(
+                    text = buildAnnotatedString {
+                        val at = fix?.let { sentence.text.indexOf(it.fixed) } ?: -1
+                        if (fix == null || at < 0) {
+                            append(sentence.text)
+                        } else {
+                            append(sentence.text.substring(0, at))
+                            withStyle(SpanStyle(color = AutoColors.Ink.copy(alpha = 0.5f), textDecoration = TextDecoration.LineThrough)) {
+                                append(fix.wrong)
+                            }
+                            append(" ")
+                            withStyle(SpanStyle(background = AutoColors.Ink, color = AutoColors.OnInk)) { append(fix.fixed) }
+                            append(sentence.text.substring(at + fix.fixed.length))
+                        }
+                    },
+                    spec = Current,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
         HLine()
 
-        // 말로 고친 대화.
+        // 말로 고친 대화. 아직 고친 적이 없으면 고치는 방법을 알려 준다.
         BoxWithConstraints(Modifier.fillMaxWidth().padding(start = 32.px, top = 28.px, end = 32.px, bottom = 26.px)) {
             val width = maxWidth
-            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(22.px)) {
+            val exchange = ui.exchange
+            if (exchange == null) {
                 BasicText(
-                    text = fix.userSaid,
-                    style = UserSaid.style(AutoColors.OnInk),
-                    modifier = Modifier
-                        .align(Alignment.End)
-                        .widthIn(max = width * 0.78f)
-                        .clip(RoundedCornerShape(30.px, 30.px, 8.px, 30.px))
-                        .background(AutoColors.Ink)
-                        .padding(horizontal = 26.px, vertical = 20.px),
+                    "읽다가 틀린 곳이 있으면\n“방금 거기 고치자”라고 말씀해 주세요.\n예) “1988년이 아니라 1987년이었어.”",
+                    style = OtoSaid.style(AutoColors.InkSecondary),
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(16.px), verticalAlignment = Alignment.Bottom) {
-                    OtoAvatar()
-                    val shape = RoundedCornerShape(30.px, 30.px, 30.px, 8.px)
+            } else {
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(22.px)) {
                     BasicText(
-                        text = fix.otoReply,
-                        style = OtoSaid.style(),
+                        text = exchange.userSaid,
+                        style = UserSaid.style(AutoColors.OnInk),
                         modifier = Modifier
-                            .widthIn(max = width * 0.84f)
-                            .clip(shape)
-                            .background(AutoColors.SurfacePill)
-                            .border(2.px, AutoColors.Line, shape)
+                            .align(Alignment.End)
+                            .widthIn(max = width * 0.78f)
+                            .clip(RoundedCornerShape(30.px, 30.px, 8.px, 30.px))
+                            .background(AutoColors.Ink)
                             .padding(horizontal = 26.px, vertical = 20.px),
                     )
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.px), verticalAlignment = Alignment.Bottom) {
+                        OtoAvatar()
+                        val shape = RoundedCornerShape(30.px, 30.px, 30.px, 8.px)
+                        BasicText(
+                            text = exchange.otoReply,
+                            style = OtoSaid.style(),
+                            modifier = Modifier
+                                .widthIn(max = width * 0.84f)
+                                .clip(shape)
+                                .background(AutoColors.SurfacePill)
+                                .border(2.px, AutoColors.Line, shape)
+                                .padding(horizontal = 26.px, vertical = 20.px),
+                        )
+                    }
                 }
             }
         }
@@ -157,11 +185,23 @@ fun ListenDriveScreen(onStopHere: () -> Unit, onCallOto: () -> Unit, modifier: M
             horizontalArrangement = Arrangement.spacedBy(20.px),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ProgressBar(fix.position, Modifier.weight(1f))
-            CircleIconButton(AutoIcons.Pause, "일시정지", onClick = {}, sizePx = 92f, iconSizePx = 34f, borderPx = 3.5f)
-            CircleIconButton(AutoIcons.Next, "다음 문단", onClick = {}, sizePx = 84f, iconSizePx = 32f)
+            ProgressBar(if (ui.totalMs == 0L) 0f else ui.elapsedMs.toFloat() / ui.totalMs, Modifier.weight(1f))
+            CircleIconButton(
+                if (ui.playing) AutoIcons.Pause else AutoIcons.Play,
+                if (ui.playing) "일시정지" else "이어 듣기",
+                onClick = { services?.listen?.togglePlay() },
+                sizePx = 92f,
+                iconSizePx = 34f,
+                borderPx = 3.5f,
+            )
+            CircleIconButton(AutoIcons.Next, "다음 문단", onClick = { services?.listen?.nextParagraph() }, sizePx = 84f, iconSizePx = 32f)
         }
     }
+}
+
+private fun formatMs(ms: Long): String {
+    val sec = ms / 1000
+    return "%02d:%02d".format(sec / 60, sec % 60)
 }
 
 /** 오토 얼굴: 연보라 원 안의 물결(시안 SVG viewBox 40×24, 두께 3). */

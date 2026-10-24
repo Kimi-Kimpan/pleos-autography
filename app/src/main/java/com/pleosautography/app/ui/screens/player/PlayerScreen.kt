@@ -25,7 +25,14 @@ import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import com.pleosautography.app.data.demo.DemoData
+import com.pleosautography.app.data.audio.RadioPlayer
+import com.pleosautography.app.ui.LocalAppServices
 import com.pleosautography.app.ui.components.CircleIconButton
+import com.pleosautography.app.ui.components.radioPlaying
+import com.pleosautography.app.ui.screens.LocalBookState
+import com.pleosautography.app.ui.screens.LocalRadioState
+import com.pleosautography.app.ui.screens.drive.radioLabel
+import com.pleosautography.app.ui.screens.drive.similarStories
 import com.pleosautography.app.ui.components.HLine
 import com.pleosautography.app.ui.components.SingleLine
 import com.pleosautography.app.ui.icons.AutoIcons
@@ -49,12 +56,15 @@ private val Meta = TextSpec(22f, FontWeight.SemiBold)
 /**
  * 03 오토그래피 라디오(정차 중). 시안: design/screens/Player.png
  * 미니 플레이어를 펼친 화면. 위에는 지금 쓰는 자서전(접기 버튼), 가운데는 재생 중인 이야기, 아래는 검색·장르·다음 이야기.
- * 재생은 아직 시연 데이터로만 보이고, 실제 낭독 재생은 마일스톤 7에서 붙인다.
+ * 재생·일시정지·다음·15초 뒤로는 재생 위치를 실제로 움직인다(낭독 음원은 2단계라 소리는 없다).
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PlayerScreen(onCollapse: () -> Unit, modifier: Modifier = Modifier) {
     val radio = DemoData.radio
+    val now = LocalRadioState.current
+    val player = LocalAppServices.current?.radioPlayer
+    val playing = radioPlaying()
     val chapter = currentChapter()
     var genre by rememberSaveable { mutableIntStateOf(0) }
     Column(modifier.fillMaxSize()) {
@@ -67,7 +77,7 @@ fun PlayerScreen(onCollapse: () -> Unit, modifier: Modifier = Modifier) {
         ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.px)) {
                 BasicText("내 자서전", style = Small.style(AutoColors.InkSecondary))
-                SingleLine("${DemoData.BOOK_TITLE} · ${chapter.number}장 ${chapter.title} 쓰는 중", BookLine, AutoColors.Ink)
+                SingleLine("${LocalBookState.current.title} · ${chapter.number}장 ${chapter.title} 쓰는 중", BookLine, AutoColors.Ink)
             }
             CircleIconButton(AutoIcons.ChevronDown, "내 자서전 열기", onClick = onCollapse, sizePx = 80f, iconSizePx = 36f)
         }
@@ -79,23 +89,23 @@ fun PlayerScreen(onCollapse: () -> Unit, modifier: Modifier = Modifier) {
         ) {
             BasicText("AUTOGRAPHY RADIO", style = PaneLabel.style())
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(32.px)) {
-                RadioCover(radio.coverVolume)
+                RadioCover(now.episode.volume)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.px)) {
-                    SingleLine(radio.nowPlayingLabel, TextSpec(21f, FontWeight.Bold), AutoColors.InkSecondary)
-                    SingleLine(radio.title, TextSpec(42f, FontWeight.ExtraBold, lineHeightPx = 48.3f), AutoColors.Ink)
-                    SingleLine(radio.narrator, TextSpec(23f, FontWeight.SemiBold), AutoColors.InkSecondary)
+                    SingleLine(radioLabel(radio.nowPlayingLabel), TextSpec(21f, FontWeight.Bold), AutoColors.InkSecondary)
+                    SingleLine(now.episode.title, TextSpec(42f, FontWeight.ExtraBold, lineHeightPx = 48.3f), AutoColors.Ink)
+                    SingleLine(now.episode.narrator, TextSpec(23f, FontWeight.SemiBold), AutoColors.InkSecondary)
                     Column(Modifier.padding(top = 6.px), verticalArrangement = Arrangement.spacedBy(8.px)) {
-                        SeekBar(radio.position, knobPx = 28f)
+                        SeekBar(now.progress, knobPx = 28f)
                         Row(Modifier.fillMaxWidth()) {
                             val time = TextSpec(20f, FontWeight.SemiBold, tabularNumbers = true)
-                            BasicText(radio.elapsed, style = time.style(AutoColors.InkSecondary), modifier = Modifier.weight(1f))
-                            BasicText(radio.duration, style = time.style(AutoColors.InkSecondary))
+                            BasicText(RadioPlayer.formatTime(now.positionSec), style = time.style(AutoColors.InkSecondary), modifier = Modifier.weight(1f))
+                            BasicText(RadioPlayer.formatTime(now.episode.durationSec), style = time.style(AutoColors.InkSecondary))
                         }
                     }
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(24.px)) {
-                        RewindButton(sizePx = 84f, iconPx = 30f, labelPx = 13f)
-                        CircleIconButton(AutoIcons.Pause, "일시정지", onClick = {}, sizePx = 112f, iconSizePx = 44f, borderPx = 4f)
-                        CircleIconButton(AutoIcons.Next, "다음 이야기", onClick = {}, sizePx = 84f, iconSizePx = 32f)
+                        RewindButton(sizePx = 84f, iconPx = 30f, labelPx = 13f, onClick = { player?.rewind15() })
+                        CircleIconButton(if (playing) AutoIcons.Pause else AutoIcons.Play, if (playing) "일시정지" else "재생", onClick = { player?.togglePlay() }, sizePx = 112f, iconSizePx = 44f, borderPx = 4f)
+                        CircleIconButton(AutoIcons.Next, "다음 이야기", onClick = { player?.next() }, sizePx = 84f, iconSizePx = 32f)
                     }
                 }
             }
@@ -145,12 +155,12 @@ fun PlayerScreen(onCollapse: () -> Unit, modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.Bottom,
         ) {
             BasicText("다음으로 들을 이야기", style = Section.style(), modifier = Modifier.weight(1f))
-            BasicText("${DemoData.OWNER_CALL_NAME}님과 비슷한 이야기", style = TextSpec(20f, FontWeight.SemiBold).style(AutoColors.InkSecondary))
+            BasicText(similarStories(), style = TextSpec(20f, FontWeight.SemiBold).style(AutoColors.InkSecondary))
         }
         Column(Modifier.padding(start = 32.px, top = 4.px, end = 32.px)) {
-            radio.upNext.forEachIndexed { index, episode ->
+            now.upNext.forEachIndexed { index, episode ->
                 EpisodeRow(episode, heightPx = 116f, gapPx = 20f, titlePx = 28f, metaPx = 20f)
-                if (index < radio.upNext.lastIndex) HLine()
+                if (index < now.upNext.lastIndex) HLine()
             }
         }
     }

@@ -16,11 +16,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.pleosautography.app.data.audio.RadioPlayback
+import com.pleosautography.app.data.audio.RadioState
 import com.pleosautography.app.data.demo.DemoData
+import kotlinx.coroutines.launch
 import com.pleosautography.app.domain.DriveMode
 import com.pleosautography.app.domain.demo.DemoEvent
 import com.pleosautography.app.domain.interview.InterviewEvent
@@ -42,6 +47,9 @@ import com.pleosautography.app.ui.screens.LocalBookState
 import com.pleosautography.app.ui.screens.LocalInterviewUi
 import com.pleosautography.app.ui.screens.LocalLiveProgress
 import com.pleosautography.app.ui.screens.LocalRadioPlayback
+import com.pleosautography.app.ui.screens.LocalRadioState
+import com.pleosautography.app.ui.screens.onboarding.LocalOnboardingDraft
+import com.pleosautography.app.ui.screens.onboarding.rememberOnboardingDraft
 import com.pleosautography.app.ui.screens.PlaceholderScreen
 import com.pleosautography.app.ui.screens.drive.ListenDriveScreen
 import com.pleosautography.app.ui.screens.onboarding.OnboardingScreen
@@ -115,17 +123,39 @@ fun AutographyApp(
 
     val situation = services?.situation
     var pendingIntro by remember { mutableStateOf<String?>(null) }
+    var pendingChapter by remember { mutableStateOf<Int?>(null) }
 
-    // 인터뷰는 인터뷰 화면이 열려 있는 동안만 돈다. 인터뷰·원고 듣기 중에는 다른 소리를 멈춘다.
+    // 첫 실행: 책이 하나도 없으면(첫 설치, 마지막 책을 지움) 정차 중에 첫 실행 화면으로 시작한다.
+    // 첫 실행 중에 책이 생기면(시연용 서재 준비 포함) 홈으로 간다.
+    val library = services?.library?.collectAsState()?.value
+    val hasBook = library?.let { it.active != null }
+    var firstRun by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(hasBook, driveMode, if (hasBook == false) navigator.current else null) {
+        when {
+            hasBook == false && driveMode == DriveMode.PARKED && navigator.current !in ONBOARDING -> {
+                firstRun = true
+                navigator.reset(Screen.Onboarding)
+            }
+            hasBook == true && firstRun -> {
+                firstRun = false
+                if (navigator.current in ONBOARDING) navigator.reset(Screen.Main)
+            }
+        }
+    }
+    val draft = rememberOnboardingDraft()
+
+    // 인터뷰는 인터뷰 화면이 열려 있는 동안만 돈다. 원고 듣기도 같다. 둘 다 다른 소리를 멈춘다.
     val current = navigator.current
     LaunchedEffect(current, services) {
         services ?: return@LaunchedEffect
         if (current == Screen.Interview) {
-            services.interview.start(intro = pendingIntro)
+            services.interview.start(intro = pendingIntro, chapter = pendingChapter)
             pendingIntro = null
+            pendingChapter = null
         } else {
             services.interview.stop()
         }
+        if (current == Screen.ListenDrive) services.listen.start() else services.listen.stop()
         services.setTalking(current == Screen.Interview || current == Screen.ListenDrive)
     }
     val book = services?.book?.collectAsState(initial = BookState())?.value ?: BookState()
@@ -159,6 +189,7 @@ fun AutographyApp(
                     Screen.ListenDrive -> navigator.navigate(if (navigator.backStack.contains(Screen.Main)) Screen.Main else Screen.Driving)
                     else -> Unit
                 }
+                VoiceCommand.FIX -> if (navigator.current == Screen.ListenDrive) services.listen.applyFix(text)
                 VoiceCommand.LISTEN -> if (navigator.current == Screen.Driving || navigator.current == Screen.Main) {
                     if (navigator.current == Screen.Main) navigator.openFromMain(Screen.ListenDrive) else navigator.navigate(Screen.ListenDrive)
                 }
@@ -200,6 +231,7 @@ fun AutographyApp(
     val liveProgress = services?.currentProgress?.collectAsState(initial = null)?.value
     val interviewUi = services?.interview?.ui?.collectAsState()?.value ?: InterviewUi()
     val radio = services?.radio?.collectAsState()?.value ?: RadioPlayback()
+    val radioState = services?.radioPlayer?.state?.collectAsState()?.value ?: RadioState()
     val driveSituation = DriveSituation(
         minutesToArrival = navi?.minutesToArrival ?: DemoData.drive.minutesToArrival,
         nudgeReason = nudgeReason ?: NudgeReason.CONGESTION,
@@ -221,6 +253,9 @@ fun AutographyApp(
                 LocalLiveProgress provides liveProgress,
                 LocalInterviewUi provides interviewUi,
                 LocalRadioPlayback provides radio,
+                LocalRadioState provides radioState,
+                LocalOnboardingDraft provides draft,
+                LocalStartChapter provides { chapter -> pendingChapter = chapter },
                 LocalBookState provides book,
                 LocalAppServices provides services,
             ) {
@@ -259,7 +294,8 @@ private fun AppPanes(
     val onboarding = navigator.current in ONBOARDING
     Row(Modifier.fillMaxSize()) {
         Spine(
-            bookTitle = DemoData.BOOK_TITLE,
+            // 첫 실행 중에는 지금 정하고 있는 제목을 쓴다.
+            bookTitle = if (onboarding) LocalOnboardingDraft.current.chosenTitle else LocalBookState.current.title,
             onSettings = { navigator.navigate(Screen.Settings) },
             onLogoLongPress = onLogoLongPress,
             settingsOpen = navigator.current == Screen.Settings,
@@ -301,9 +337,17 @@ private fun ScreenContent(
 ) {
     val services = LocalAppServices.current
     val interviewUi = LocalInterviewUi.current
+    val bookId = LocalBookState.current.id
+    val startChapter = LocalStartChapter.current
     when (screen) {
         Screen.Main -> MainScreen(
             onContinueWriting = { navigator.openFromMain(Screen.Interview) },
+            onStartChapter = { chapter ->
+                val book = bookId
+                if (book != null) services?.launch { services.repository.setCurrentChapter(book, chapter) }
+                startChapter(chapter)
+                navigator.openFromMain(Screen.Interview)
+            },
             onListen = { navigator.openFromMain(Screen.Player) },
             onOpenScript = { navigator.openFromMain(Screen.Script) },
             onOpenPlayer = { navigator.openFromMain(Screen.Player) },
@@ -350,32 +394,54 @@ private fun ScreenContent(
         )
         Screen.ListenDrive -> ListenDriveScreen(
             onStopHere = { navigator.navigate(if (navigator.backStack.contains(Screen.Main)) Screen.Main else Screen.Driving) },
-            onCallOto = {},
+            // 시연: 마이크를 누르면 준비된 정정 문장을 말한 것으로 친다(Pleos SpeechToText 승인 전).
+            onCallOto = { services?.let { it.speechInput.inject(it.demoFixSentence) } },
             modifier = modifier,
         )
         Screen.Player -> PlayerScreen(
             onCollapse = { if (navigator.canGoBack) navigator.back() else navigator.navigate(Screen.Main) },
             modifier = modifier,
         )
-        Screen.Settings -> SettingsScreen(
-            onHome = { navigator.navigate(Screen.Main) },
-            // 출판 신청 흐름은 2단계 범위다.
-            onPublish = {},
-            onNewBook = { navigator.navigate(Screen.Onboarding) },
-            modifier = modifier,
-            showHome = !fullWindow,
-        )
+        Screen.Settings -> {
+            val draft = LocalOnboardingDraft.current
+            val ownerName = services?.library?.collectAsState()?.value?.settings?.ownerName
+            SettingsScreen(
+                onHome = { navigator.navigate(Screen.Main) },
+                onNewBook = {
+                    draft.reset(ownerName)
+                    navigator.navigate(Screen.Onboarding)
+                },
+                modifier = modifier,
+                showHome = !fullWindow,
+            )
+        }
         Screen.Onboarding, Screen.Onboarding2, Screen.Onboarding3 -> {
             val step = ONBOARDING.indexOf(screen)
+            val draft = LocalOnboardingDraft.current
+            val scope = rememberCoroutineScope()
+            // 첫 단계의 ‘이전’은 이미 책이 있을 때(새 자서전 시작)만 환경설정으로 돌아간다.
+            val hasBook = LocalBookState.current.id != null
             OnboardingScreen(
                 step = step + 1,
+                draft = draft,
+                previousEnabled = step > 0 || (hasBook && navigator.canGoBack),
                 onPrevious = { navigator.back() },
-                onNext = { ONBOARDING.getOrNull(step + 1)?.let(navigator::navigate) ?: navigator.reset(Screen.Main) },
+                onNext = {
+                    val nextStep = ONBOARDING.getOrNull(step + 1)
+                    if (nextStep != null) {
+                        navigator.navigate(nextStep)
+                    } else {
+                        // 시작하기: 이름·제목·첫 챕터를 저장하고 그 책을 지금 쓰는 책으로 둔다.
+                        scope.launch {
+                            services?.createBook?.invoke(draft.chosenTitle, draft.name.trim(), draft.callName, draft.firstChapter)
+                            navigator.reset(Screen.Main)
+                        }
+                    }
+                },
                 modifier = modifier,
             )
         }
         Screen.Complete -> CompleteScreen(
-            onPublish = { navigator.navigate(Screen.Settings) },
             onHome = { navigator.navigate(Screen.Main) },
             modifier = modifier,
         )
@@ -420,6 +486,9 @@ private fun WindowStatusChip(current: Screen, driveMode: DriveMode, modifier: Mo
         modifier = modifier.padding(top = 36.px, end = 40.px),
     )
 }
+
+/** 홈에서 다른 챕터를 골라 인터뷰를 열 때, 그 챕터로 시작하게 알린다. */
+private val LocalStartChapter = staticCompositionLocalOf<(Int) -> Unit> { {} }
 
 /** 첫 실행 세 단계(순서대로). */
 private val ONBOARDING = listOf(Screen.Onboarding, Screen.Onboarding2, Screen.Onboarding3)

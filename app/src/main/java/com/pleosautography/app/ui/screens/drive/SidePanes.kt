@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -36,14 +37,21 @@ import com.pleosautography.app.data.demo.ChapterStatus
 import com.pleosautography.app.data.demo.ChapterSummary
 import com.pleosautography.app.data.demo.DemoData
 import com.pleosautography.app.data.demo.RadioEpisode
+import com.pleosautography.app.data.audio.RadioPlayer
+import com.pleosautography.app.ui.LocalAppServices
 import com.pleosautography.app.ui.components.CircleIconButton
+import com.pleosautography.app.ui.components.radioPlaying
 import com.pleosautography.app.ui.components.HLine
 import com.pleosautography.app.ui.components.ProgressBar
 import com.pleosautography.app.ui.components.SingleLine
 import com.pleosautography.app.ui.components.StatusChip
 import com.pleosautography.app.ui.icons.AutoIcons
 import com.pleosautography.app.ui.icons.Illustrations
+import com.pleosautography.app.ui.screens.LocalBookState
 import com.pleosautography.app.ui.screens.LocalLiveProgress
+import com.pleosautography.app.ui.screens.LocalRadioPlayback
+import com.pleosautography.app.ui.screens.LocalRadioState
+import com.pleosautography.app.ui.screens.main.TOTAL_CHAPTERS
 import com.pleosautography.app.ui.screens.live
 import com.pleosautography.app.ui.theme.AutoColors
 import com.pleosautography.app.ui.theme.DisabledAlpha
@@ -78,6 +86,9 @@ private fun PaneHeader(label: String) {
 @Composable
 fun RadioSidePane(modifier: Modifier = Modifier) {
     val radio = DemoData.radio
+    val now = LocalRadioState.current
+    val player = LocalAppServices.current?.radioPlayer
+    val playing = radioPlaying()
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -89,21 +100,21 @@ fun RadioSidePane(modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(32.px),
         ) {
-            RadioCover(radio.coverVolume)
+            RadioCover(now.episode.volume)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.px)) {
-                SingleLine(radio.nowPlayingLabel, InfoLabel, AutoColors.InkSecondary)
-                SingleLine(radio.title, TextSpec(40f, FontWeight.ExtraBold, lineHeightPx = 46f), AutoColors.Ink)
-                SingleLine(radio.narrator, InfoMeta, AutoColors.InkSecondary)
-                SeekBar(radio.position, Modifier.padding(top = 8.px))
+                SingleLine(radioLabel(radio.nowPlayingLabel), InfoLabel, AutoColors.InkSecondary)
+                SingleLine(now.episode.title, TextSpec(40f, FontWeight.ExtraBold, lineHeightPx = 46f), AutoColors.Ink)
+                SingleLine(now.episode.narrator, InfoMeta, AutoColors.InkSecondary)
+                SeekBar(now.progress, Modifier.padding(top = 8.px))
                 Row(Modifier.fillMaxWidth()) {
                     val time = TextSpec(19f, FontWeight.SemiBold, tabularNumbers = true)
-                    BasicText(radio.elapsed, style = time.style(AutoColors.InkSecondary), modifier = Modifier.weight(1f))
-                    BasicText(radio.duration, style = time.style(AutoColors.InkSecondary))
+                    BasicText(RadioPlayer.formatTime(now.positionSec), style = time.style(AutoColors.InkSecondary), modifier = Modifier.weight(1f))
+                    BasicText(RadioPlayer.formatTime(now.episode.durationSec), style = time.style(AutoColors.InkSecondary))
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(22.px)) {
-                    RewindButton()
-                    CircleIconButton(AutoIcons.Pause, "일시정지", onClick = {}, sizePx = 104f, iconSizePx = 40f, borderPx = 4f)
-                    CircleIconButton(AutoIcons.Next, "다음 이야기", onClick = {})
+                    RewindButton(onClick = { player?.rewind15() })
+                    CircleIconButton(if (playing) AutoIcons.Pause else AutoIcons.Play, if (playing) "일시정지" else "재생", onClick = { player?.togglePlay() }, sizePx = 104f, iconSizePx = 40f, borderPx = 4f)
+                    CircleIconButton(AutoIcons.Next, "다음 이야기", onClick = { player?.next() })
                 }
             }
         }
@@ -125,15 +136,36 @@ fun RadioSidePane(modifier: Modifier = Modifier) {
         }
         Row(Modifier.fillMaxWidth().padding(top = 26.px), verticalAlignment = Alignment.Bottom) {
             BasicText("다음으로 들을 이야기", style = TextSpec(28f, FontWeight.ExtraBold).style(), modifier = Modifier.weight(1f))
-            BasicText("${DemoData.OWNER_CALL_NAME}님과 비슷한 이야기", style = Footnote.style(AutoColors.InkSecondary))
+            BasicText(similarStories(), style = Footnote.style(AutoColors.InkSecondary))
         }
         Column(Modifier.padding(top = 6.px)) {
-            radio.upNext.forEachIndexed { index, episode ->
+            now.upNext.forEachIndexed { index, episode ->
                 EpisodeRow(episode)
-                if (index < radio.upNext.lastIndex) HLine()
+                if (index < now.upNext.lastIndex) HLine()
             }
         }
     }
+}
+
+/** 라디오 지금 상태 문구: 재생 중이면 [playingLabel], 아니면 멈춘 이유. */
+@Composable
+@ReadOnlyComposable
+internal fun radioLabel(playingLabel: String): String = when {
+    LocalRadioPlayback.current.paused -> "인터뷰 중 잠시 멈춤"
+    LocalRadioState.current.userPaused -> "일시정지"
+    LocalRadioPlayback.current.ducked -> "소리 줄임 · 오토 목소리 낭독"
+    else -> playingLabel
+}
+
+/** “○○님과 비슷한 이야기”. */
+@Composable
+@ReadOnlyComposable
+internal fun similarStories(): String {
+    val name = LocalBookState.current.callName
+    if (name.isBlank()) return "나와 비슷한 이야기"
+    val last = name.lastOrNull { it in '가'..'힣' }
+    val particle = if (last != null && (last - '가') % 28 == 0) "와" else "과"
+    return "$name$particle 비슷한 이야기"
 }
 
 /** 라디오 표지(228×304). 플레이어 화면도 쓴다. */
@@ -237,7 +269,10 @@ internal fun EpisodeRow(episode: RadioEpisode, heightPx: Float = 106f, gapPx: Fl
 /** 인터뷰 중 오른쪽: 내 자서전. 라디오는 멈춰 있고, 목록의 듣기·시작 버튼은 비활성이다. */
 @Composable
 fun MyBookSidePane(modifier: Modifier = Modifier) {
-    val book = DemoData.book
+    val book = LocalBookState.current
+    val stats = book.stats
+    val current = LocalLiveProgress.current?.takeIf { it.chapterNumber == book.current }
+    val progress = ((book.done.size + (current?.progress ?: 0f)) / TOTAL_CHAPTERS).coerceIn(0f, 1f)
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -250,14 +285,14 @@ fun MyBookSidePane(modifier: Modifier = Modifier) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(32.px),
             ) {
-                BookCard(book.doneChapters, book.totalChapters)
+                BookCard(book.title, book.done.size, TOTAL_CHAPTERS)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.px)) {
                     SingleLine("지금까지 쓴 자서전", InfoLabel, AutoColors.InkSecondary)
-                    SingleLine(DemoData.BOOK_TITLE, TextSpec(42f, FontWeight.Bold, GowunBatang, lineHeightPx = 50.4f), AutoColors.Ink)
-                    SingleLine("이야기 ${book.storyCount}편 · 오토와 나눈 대화 ${book.conversationCount}회", InfoMeta, AutoColors.InkSecondary)
-                    ProgressBar(book.progress, Modifier.padding(top = 8.px))
+                    SingleLine(book.title, TextSpec(42f, FontWeight.Bold, GowunBatang, lineHeightPx = 50.4f), AutoColors.Ink)
+                    SingleLine("이야기 ${stats?.stories ?: 0}편 · 오토와 나눈 대화 ${stats?.conversations ?: 0}회", InfoMeta, AutoColors.InkSecondary)
+                    ProgressBar(progress, Modifier.padding(top = 8.px))
                     BasicText(
-                        "전체 ${book.totalChapters}챕터 중 ${(book.progress * 100).roundToInt()}%",
+                        "전체 ${TOTAL_CHAPTERS}챕터 중 ${(progress * 100).roundToInt()}%",
                         style = TextSpec(19f, FontWeight.SemiBold).style(AutoColors.InkSecondary),
                     )
                 }
@@ -284,7 +319,7 @@ fun MyBookSidePane(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun BookCard(done: Int, total: Int) {
+private fun BookCard(title: String, done: Int, total: Int) {
     Column(
         modifier = Modifier
             .size(width = 180.px, height = 240.px)
@@ -302,7 +337,7 @@ private fun BookCard(done: Int, total: Int) {
         }
         Spacer(Modifier.weight(1f))
         BasicText(
-            DemoData.BOOK_TITLE.replace("의 ", "의\n"),
+            title.replace("의 ", "의\n"),
             style = TextSpec(28f, FontWeight.Bold, GowunBatang, lineHeightPx = 35f).style(),
         )
         BasicText("Autography", style = TextSpec(13f, FontWeight.Bold, GowunBatang).style(), modifier = Modifier.padding(top = 12.px))
@@ -341,7 +376,6 @@ private fun BookChapterRow(chapter: ChapterSummary) {
 
 @Composable
 private fun CurrentChapterRow(chapter: ChapterSummary) {
-    val book = DemoData.book
     val live = LocalLiveProgress.current
     Column {
         Column(
@@ -359,7 +393,7 @@ private fun CurrentChapterRow(chapter: ChapterSummary) {
             Column(Modifier.padding(start = 66.px), verticalArrangement = Arrangement.spacedBy(10.px)) {
                 ProgressBar(chapter.progress)
                 BasicText(
-                    "${chapter.storyCount}편 · ${(chapter.progress * 100).roundToInt()}% · 질문 ${live?.questionNumber ?: book.currentQuestion} / ${live?.total ?: book.currentQuestionTotal}",
+                    "${chapter.storyCount}편 · ${(chapter.progress * 100).roundToInt()}% · 질문 ${live?.questionNumber ?: 1} / ${live?.total ?: 0}",
                     style = TextSpec(21f, FontWeight.SemiBold).style(AutoColors.InkSecondary),
                 )
             }
@@ -370,13 +404,13 @@ private fun CurrentChapterRow(chapter: ChapterSummary) {
 
 /** 15초 뒤로: 아이콘 아래에 작은 “15”. */
 @Composable
-internal fun RewindButton(sizePx: Float = 80f, iconPx: Float = 28f, labelPx: Float = 12f) {
+internal fun RewindButton(sizePx: Float = 80f, iconPx: Float = 28f, labelPx: Float = 12f, onClick: () -> Unit = {}) {
     Box(
         modifier = Modifier
             .size(sizePx.px)
             .clip(CircleShape)
             .border(2.5.px, AutoColors.Ink, CircleShape)
-            .clickable(role = Role.Button, onClickLabel = "15초 뒤로") {},
+            .clickable(role = Role.Button, onClickLabel = "15초 뒤로", onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {

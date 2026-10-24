@@ -25,7 +25,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import com.pleosautography.app.data.demo.ChapterStatus
 import com.pleosautography.app.data.demo.ChapterSummary
 import com.pleosautography.app.data.demo.DemoData
-import com.pleosautography.app.data.demo.NowPlaying
+import com.pleosautography.app.ui.screens.LocalBookState
 import com.pleosautography.app.ui.components.CircleIconButton
 import com.pleosautography.app.ui.components.HLine
 import com.pleosautography.app.ui.components.MiniPlayer
@@ -52,6 +52,7 @@ enum class ChapterAction { CONTINUE, LISTEN, SCRIPT }
  *
  * @param selectedAction 오른쪽 칸에 열린 화면의 버튼(선택 표시).
  * @param radioPaused 정차 중 인터뷰가 열려 라디오를 잠시 멈췄는지.
+ * @param onStartChapter 시작 전 챕터의 ＋: 그 챕터를 지금 쓰는 챕터로 바꾸고 인터뷰를 연다.
  */
 @Composable
 fun MainScreen(
@@ -60,6 +61,7 @@ fun MainScreen(
     onOpenScript: () -> Unit,
     onOpenPlayer: () -> Unit,
     modifier: Modifier = Modifier,
+    onStartChapter: (Int) -> Unit = { onContinueWriting() },
     showHeader: Boolean = true,
     selectedAction: ChapterAction? = null,
     radioPaused: Boolean = false,
@@ -85,12 +87,12 @@ fun MainScreen(
                     ChapterRow(
                         chapter = chapter,
                         fullWidthDivider = nextIsExpanded,
-                        onAction = if (chapter.status == ChapterStatus.DONE) onListen else onContinueWriting,
+                        onAction = if (chapter.status == ChapterStatus.DONE) onListen else ({ onStartChapter(chapter.number) }),
                     )
                 }
             }
         }
-        MiniPlayer(DemoData.nowPlaying, onExpand = onOpenPlayer, pausedForInterview = radioPaused)
+        MiniPlayer(onExpand = onOpenPlayer, pausedForInterview = radioPaused)
     }
 }
 
@@ -207,5 +209,5 @@ private fun ChapterSummary.metaText(): String = when (status) {
 fun parkedGreeting(singleLine: Boolean): String {
     val title = currentChapter().title
     val story = if (singleLine) "‘$title’ 이야기를 이어서 써 볼까요?" else "‘$title’ 이야기를\n이어서 써 볼까요?"
-    return "안녕하세요 ${DemoData.OWNER_CALL_NAME}님!\n$story"
+    return "안녕하세요${LocalBookState.current.greetingName}!\n$story"
 }

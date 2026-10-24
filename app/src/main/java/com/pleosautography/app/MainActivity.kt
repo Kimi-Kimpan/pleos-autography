@@ -21,8 +21,10 @@ import com.pleosautography.app.ui.navigation.Screen
 import com.pleosautography.app.ui.screens.BookState
 import com.pleosautography.app.ui.theme.DemoOptions
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 
 class MainActivity : ComponentActivity() {
 
@@ -43,21 +45,45 @@ class MainActivity : ComponentActivity() {
         val missing = listOf(Car.PERMISSION_SPEED, Manifest.permission.RECORD_AUDIO)
             .filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
         if (missing.isNotEmpty()) requestPermissions.launch(missing.toTypedArray())
+        val repository = graph.repository
         val services = AppServices(
             situation = graph.situation,
             interview = graph.interview,
+            listen = graph.listen,
             speechInput = graph.speechInput,
             radio = graph.radioAudio.radio,
-            currentProgress = graph.interview.currentChapter.flatMapLatest(graph.repository::observeProgress),
-            book = combine(
-                graph.interview.currentChapter,
-                graph.repository.observeDoneChapters(),
-                graph.repository.observeStoriesByChapter(),
-                graph.repository.observeBookStats(),
-            ) { current, done, stories, stats -> BookState(current, done, stories, stats) },
-            answersFor = graph.repository::observeAnswers,
-            playChime = { graph.radioAudio.ducking { graph.chime.play() } },
+            radioPlayer = graph.radioPlayer,
+            repository = repository,
+            library = repository.library,
+            currentProgress = repository.currentProgress,
+            book = repository.library.flatMapLatest { library ->
+                val active = library?.active ?: return@flatMapLatest flowOf(BookState(callName = library?.settings?.callName.orEmpty()))
+                repository.observeBook(active.id).map { content ->
+                    BookState(
+                        id = active.id,
+                        title = active.title,
+                        callName = library.settings?.callName ?: active.ownerCallName,
+                        current = active.currentChapter,
+                        done = content.done,
+                        stories = content.stories,
+                        stats = content.stats,
+                        publishRequested = active.publishRequestedAt != null,
+                    )
+                }
+            },
+            answersFor = { chapter ->
+                repository.activeBookId.distinctUntilChanged().flatMapLatest { id ->
+                    id?.let { repository.observeAnswers(it, chapter) } ?: flowOf(emptyList())
+                }
+            },
+            playChime = {
+                if (repository.library.value?.settings?.chimeOn != false) graph.radioAudio.ducking { graph.chime.play() }
+            },
             setTalking = graph.radioAudio::setTalking,
+            readAloud = { text -> graph.radioAudio.ducking { graph.speechOutput.speak(text) } },
+            createBook = graph::createBook,
+            launch = graph::launch,
+            demoFixSentence = graph.demoScript.fix,
         )
         setContent {
             val driveMode by graph.driveMode.collectAsState()
@@ -88,6 +114,8 @@ class MainActivity : ComponentActivity() {
             ?: screen?.let { if (it.driving) DemoEvent.DRIVE else DemoEvent.PARK }
         // 화면을 열기 전에 주행 상태부터 바꿔, 열자마자 홈으로 돌려보내지지 않게 한다.
         drive?.let(graph.demoEvents::send)
+        // --es setup demo: 시연용 서재를 만든다(책이 없을 때만, demo.sh --reset 뒤).
+        if (intent.getStringExtra("setup") == "demo") graph.demoEvents.send(DemoEvent.SETUP)
         val options = DemoOptions(timersRunning = intent.getBooleanExtra("timers", true))
         return LaunchRequest(id = System.nanoTime(), screen = screen, demoOptions = options)
     }

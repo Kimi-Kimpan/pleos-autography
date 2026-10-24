@@ -21,7 +21,9 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import com.pleosautography.app.data.demo.DemoData
+import com.pleosautography.app.ui.LocalAppServices
+import com.pleosautography.app.ui.components.NoticeHost
+import com.pleosautography.app.ui.components.rememberNoticeState
 import com.pleosautography.app.ui.components.PillButton
 import com.pleosautography.app.ui.components.RuledText
 import com.pleosautography.app.ui.components.ScreenStatusChip
@@ -45,54 +47,65 @@ const val TOTAL_CHAPTERS = 12
  * 12개 챕터를 모두 채웠을 때만 연다. 한 챕터 완성은 인터뷰 화면 안에서 보여 준다(ChapterFull·ChapterDone).
  */
 @Composable
-fun CompleteScreen(onPublish: () -> Unit, onHome: () -> Unit, modifier: Modifier = Modifier) {
-    val stats = LocalBookState.current.stats
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(start = 40.px, top = 48.px, end = 40.px, bottom = 40.px),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(30.px),
-    ) {
-        ScreenStatusChip("정차 중 · P", filled = false, sizePx = 22f, modifier = Modifier.align(Alignment.Start))
-        DoneRing()
-        RuledText(
-            text = "모든 챕터를 채우셨어요!\n이제 출판 준비를 해 볼까요?",
-            spec = Headline,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(56.px)) {
-            Stat(stats?.doneChapters ?: TOTAL_CHAPTERS, "챕터")
-            Stat(stats?.stories ?: DemoData.book.storyCount, "이야기")
-            Stat(stats?.conversations ?: DemoData.book.conversationCount, "오토와 나눈 대화")
-            Stat(stats?.pages ?: 0, "원고 쪽수")
+fun CompleteScreen(onHome: () -> Unit, modifier: Modifier = Modifier) {
+    val book = LocalBookState.current
+    val stats = book.stats
+    val services = LocalAppServices.current
+    val notice = rememberNoticeState()
+    Box(modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(start = 40.px, top = 48.px, end = 40.px, bottom = 40.px),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(30.px),
+        ) {
+            ScreenStatusChip("정차 중 · P", filled = false, sizePx = 22f, modifier = Modifier.align(Alignment.Start))
+            DoneRing()
+            RuledText(
+                text = "모든 챕터를 채우셨어요!\n이제 출판 준비를 해 볼까요?",
+                spec = Headline,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(56.px)) {
+                Stat(stats?.doneChapters ?: TOTAL_CHAPTERS, "챕터")
+                Stat(stats?.stories ?: 0, "이야기")
+                Stat(stats?.conversations ?: 0, "오토와 나눈 대화")
+                Stat(stats?.pages ?: 0, "원고 쪽수")
+            }
+            Spacer(Modifier.weight(1f))
+            Column(verticalArrangement = Arrangement.spacedBy(16.px)) {
+                PillButton(
+                    text = if (book.publishRequested) "출판 신청 접수됨" else "책 출판 신청",
+                    // 출판 흐름 자체는 2단계 범위다. MVP는 접수 기록과 안내만 한다.
+                    onClick = {
+                        val id = book.id
+                        if (id != null && !book.publishRequested) services?.launch { services.repository.requestPublish(id) }
+                        notice.show("출판 신청이 접수됐어요. 준비되면 알려 드릴게요")
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    icon = AutoIcons.Book,
+                    filled = true,
+                    heightPx = 120f,
+                    iconSizePx = 30f,
+                    textSpec = TextSpec(36f, FontWeight.ExtraBold),
+                )
+                PillButton(
+                    text = "마치기 · 홈으로",
+                    onClick = onHome,
+                    modifier = Modifier.fillMaxWidth(),
+                    heightPx = 96f,
+                    textSpec = TextSpec(32f, FontWeight.ExtraBold),
+                )
+                BasicText(
+                    "출판을 신청하시면 담당자가 연락드려요 · ${stats?.doneChapters ?: TOTAL_CHAPTERS} / $TOTAL_CHAPTERS 챕터 완성",
+                    style = Caption.style(AutoColors.InkSecondary).copy(textAlign = TextAlign.Center),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
-        Spacer(Modifier.weight(1f))
-        Column(verticalArrangement = Arrangement.spacedBy(16.px)) {
-            PillButton(
-                text = "책 출판 신청",
-                onClick = onPublish,
-                modifier = Modifier.fillMaxWidth(),
-                icon = AutoIcons.Book,
-                filled = true,
-                heightPx = 120f,
-                iconSizePx = 30f,
-                textSpec = TextSpec(36f, FontWeight.ExtraBold),
-            )
-            PillButton(
-                text = "마치기 · 홈으로",
-                onClick = onHome,
-                modifier = Modifier.fillMaxWidth(),
-                heightPx = 96f,
-                textSpec = TextSpec(32f, FontWeight.ExtraBold),
-            )
-            BasicText(
-                "출판을 신청하시면 담당자가 연락드려요 · ${stats?.doneChapters ?: TOTAL_CHAPTERS} / $TOTAL_CHAPTERS 챕터 완성",
-                style = Caption.style(AutoColors.InkSecondary).copy(textAlign = TextAlign.Center),
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
+        NoticeHost(notice, Modifier.align(Alignment.BottomCenter))
     }
 }
 

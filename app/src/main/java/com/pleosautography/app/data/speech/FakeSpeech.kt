@@ -30,6 +30,8 @@ class DemoScript(
     private val followUps: Map<String, String>,
     private val extra: String,
     private val fallback: String,
+    /** 원고 듣기에서 말할 정정 문장(“방금 거기 고치자. 1988년이 아니라 1987년이었어.”). */
+    val fix: String,
 ) {
     /** 챕터를 다 채운 뒤 더 이어 말한 것(질문 id가 “NN-extra”)이면 [extra]를 받아 적는다. */
     fun answerFor(questionId: String?): String = when {
@@ -53,6 +55,7 @@ class DemoScript(
                 followUps = json.getJSONObject("followUps").toMap(),
                 extra = json.getString("extra"),
                 fallback = json.getString("fallback"),
+                fix = json.getString("fix"),
             )
         }
     }
