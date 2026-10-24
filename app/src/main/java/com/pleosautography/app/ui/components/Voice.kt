@@ -67,23 +67,29 @@ fun BigMicButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
 }
 
 /**
- * ‘듣고 있어요’ 음성 파형. 막대 10개(폭 16, 간격 14).
+ * ‘듣고 있어요’ 음성 파형. 막대 10개(기본 폭 16, 간격 14, 높이 190).
  * 주행 중 자동 애니메이션을 줄이기 위해 지금은 멈춘 모양이고, 마일스톤 5에서 입력 음량에 맞춰 움직인다.
  * @param levels 막대마다 0~1 높이 배율.
  */
 @Composable
-fun VoiceWave(modifier: Modifier = Modifier, levels: List<Float> = RestingWave) {
+fun VoiceWave(
+    modifier: Modifier = Modifier,
+    levels: List<Float> = RestingWave,
+    barWidthPx: Float = 16f,
+    gapPx: Float = 14f,
+    heightPx: Float = 190f,
+) {
     Row(
-        modifier = modifier.height(190.px),
-        horizontalArrangement = Arrangement.spacedBy(14.px),
+        modifier = modifier.height(heightPx.px),
+        horizontalArrangement = Arrangement.spacedBy(gapPx.px),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         levels.forEach { level ->
             Box(
                 Modifier
-                    .width(16.px)
-                    .height((190f * level.coerceIn(0.1f, 1f)).px)
-                    .clip(RoundedCornerShape(8.px))
+                    .width(barWidthPx.px)
+                    .height((heightPx * level.coerceIn(0.1f, 1f)).px)
+                    .clip(RoundedCornerShape((barWidthPx / 2).px))
                     .background(AutoColors.Ink),
             )
         }

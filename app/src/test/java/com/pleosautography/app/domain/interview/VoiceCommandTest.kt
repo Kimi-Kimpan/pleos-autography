@@ -9,6 +9,7 @@ class VoiceCommandTest {
     @Test
     fun `명령을 알아듣는다`() {
         assertEquals(VoiceCommand.STOP, VoiceCommand.parse("오토야, 잠깐만"))
+        assertEquals(VoiceCommand.STOP, VoiceCommand.parse("여기까지"))
         assertEquals(VoiceCommand.WHATS_UP, VoiceCommand.parse("오토야 뭐해?"))
         assertEquals(VoiceCommand.ACCEPT, VoiceCommand.parse("응"))
         assertEquals(VoiceCommand.ACCEPT, VoiceCommand.parse("그래, 이어서 하자"))

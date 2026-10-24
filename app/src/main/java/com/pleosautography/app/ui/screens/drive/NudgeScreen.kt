@@ -22,6 +22,7 @@ import com.pleosautography.app.ui.components.RuledText
 import com.pleosautography.app.ui.components.StatusChip
 import com.pleosautography.app.ui.icons.AutoIcons
 import com.pleosautography.app.ui.screens.live
+import com.pleosautography.app.ui.screens.currentChapter
 import com.pleosautography.app.ui.theme.AutoColors
 import com.pleosautography.app.ui.theme.GowunBatang
 import com.pleosautography.app.ui.theme.LocalDemoOptions
@@ -44,7 +45,7 @@ const val NUDGE_TIMEOUT_SECONDS = 5
  */
 @Composable
 fun NudgeScreen(onAccept: () -> Unit, onLater: () -> Unit, modifier: Modifier = Modifier) {
-    val chapter = DemoData.chapters.first { it.status == ChapterStatus.WRITING }.live()
+    val chapter = currentChapter()
     val percent = (chapter.progress * 100).roundToInt()
     val reason = LocalDriveSituation.current.nudgeReason
     Column(

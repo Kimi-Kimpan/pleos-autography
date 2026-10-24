@@ -16,6 +16,8 @@ object AutoIcons {
     val Play = icon("Play") { fill("M8 5l11 7-11 7z") }
     val Pause = icon("Pause") { fill("M6 5h4v14H6z M14 5h4v14h-4z") }
     val Next = icon("Next") { fill("M6 5l9 7-9 7z M16 5h2.6v14H16z") }
+    val Check = icon("Check") { stroke("M5 12.5l4.5 4.5L19 7.5", 2.6f, cap = StrokeCap.Round, join = StrokeJoin.Round) }
+    val Book = icon("Book") { stroke("M5 4h10a4 4 0 0 1 4 4v12H9a4 4 0 0 1-4-4z M9 4v16", 2f) }
     val Plus = icon("Plus") { stroke("M12 5v14M5 12h14", 2.4f) }
     val Pencil = icon("Pencil") { stroke("M4 20h4l11-11-4-4L4 16z", 2.4f, join = StrokeJoin.Round) }
     val Document = icon("Document") { stroke("M6 3h9l4 4v14H6z M9 11h7 M9 15h7", 2f) }

@@ -12,12 +12,14 @@ import com.pleosautography.app.data.speech.DemoScript
 import com.pleosautography.app.data.speech.FakeSpeechInput
 import com.pleosautography.app.data.speech.SpeechInput
 import com.pleosautography.app.data.speech.SpeechOutput
+import com.pleosautography.app.data.speech.VoiceSettings
 import com.pleosautography.app.data.vehicle.CarApiVehicleState
 import com.pleosautography.app.data.vehicle.DemoVehicleState
 import com.pleosautography.app.domain.DriveMode
 import com.pleosautography.app.domain.DriveModeRule
 import com.pleosautography.app.domain.demo.DemoEvents
 import com.pleosautography.app.domain.interview.InterviewSession
+import com.pleosautography.app.domain.interview.ScriptedFollowUps
 import com.pleosautography.app.domain.trigger.SituationController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -47,11 +49,14 @@ class AppGraph private constructor(context: Context) {
 
     // 음성: Pleos SpeechToText·TextToSpeech 승인 전까지 시연용 Fake(실제 마이크 음량 + 준비된 문장)
     private val demoScript = DemoScript.load(context)
-    val speechInput: SpeechInput = FakeSpeechInput(context, demoScript)
+    /** 말이 끝난 것으로 볼 침묵: 시연(디버그 빌드) 1초, 기본 1.5초. */
+    val voiceSettings = VoiceSettings(if (debuggable) VoiceSettings.DEMO_SILENCE_END_MS else VoiceSettings.DEFAULT_SILENCE_END_MS)
+    val speechInput: SpeechInput = FakeSpeechInput(context, demoScript, voiceSettings)
     val speechOutput: SpeechOutput = CaptionSpeechOutput()
-    val interview = InterviewSession(scope, repository, speechInput, speechOutput, radioAudio)
+    // 후속 질문: 시연용 준비 문장(2단계에서 AI 생성으로 바꿔 끼운다)
+    val interview = InterviewSession(scope, repository, speechInput, speechOutput, radioAudio, ScriptedFollowUps(demoScript))
 
-    val demoEvents = DemoEvents(vehicle, speechInput)
+    val demoEvents = DemoEvents(vehicle, speechInput, interview)
 
     /** 경로 안내. Pleos NaviHelper 구현체는 마일스톤 8에서 붙이고, 그전에는 시연용 Fake를 쓴다. */
     val navi = FakeNaviState()
@@ -65,7 +70,7 @@ class AppGraph private constructor(context: Context) {
     init {
         carVehicle.start()
         scope.launch {
-            repository.seedQuestionsIfNeeded()
+            repository.syncQuestions()
             // 시연용 예시 답변(디버그 빌드만): 첫 실행부터 ‘첫 차’ 3편이 있는 상태로 시작한다.
             if (debuggable) repository.seedDemoAnswersIfEmpty(demoScript.seed)
         }

@@ -8,7 +8,7 @@ enum class VoiceCommand {
     /** “응” / “이어서 하자”: 제안을 받아들인다. */
     ACCEPT,
 
-    /** “오토야, 잠깐만”: 인터뷰를 멈추고 저장한다. */
+    /** “오토야, 잠깐만”·“여기까지”: 인터뷰를 멈추고 저장한다. 챕터를 다 채운 뒤라면 챕터를 마무리한다. */
     STOP,
 
     /** “들려줘”: 내 원고 낭독(마일스톤 7). */
@@ -25,7 +25,7 @@ enum class VoiceCommand {
         fun parse(text: String): VoiceCommand? {
             val t = text.replace(Regex("[\\s,.!?·“”\"']"), "")
             return when {
-                "잠깐만" in t -> STOP
+                "잠깐만" in t || "여기까지" in t -> STOP
                 "뭐해" in t -> WHATS_UP
                 "고치자" in t -> FIX
                 "들려줘" in t -> LISTEN

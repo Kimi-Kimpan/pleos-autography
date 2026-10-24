@@ -14,6 +14,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -22,6 +23,8 @@ import com.pleosautography.app.data.audio.RadioPlayback
 import com.pleosautography.app.data.demo.DemoData
 import com.pleosautography.app.domain.DriveMode
 import com.pleosautography.app.domain.demo.DemoEvent
+import com.pleosautography.app.domain.interview.InterviewEvent
+import com.pleosautography.app.domain.interview.InterviewSession
 import com.pleosautography.app.domain.interview.InterviewUi
 import com.pleosautography.app.domain.interview.VoiceCommand
 import com.pleosautography.app.domain.trigger.NudgeReason
@@ -34,12 +37,15 @@ import com.pleosautography.app.ui.navigation.AppNavigator
 import com.pleosautography.app.ui.navigation.PaneRole
 import com.pleosautography.app.ui.navigation.Screen
 import com.pleosautography.app.ui.navigation.rememberAppNavigator
+import com.pleosautography.app.ui.screens.BookState
+import com.pleosautography.app.ui.screens.LocalBookState
 import com.pleosautography.app.ui.screens.LocalInterviewUi
 import com.pleosautography.app.ui.screens.LocalLiveProgress
 import com.pleosautography.app.ui.screens.LocalRadioPlayback
 import com.pleosautography.app.ui.screens.PlaceholderScreen
 import com.pleosautography.app.ui.screens.drive.DriveSituation
 import com.pleosautography.app.ui.screens.drive.DrivingScreen
+import com.pleosautography.app.ui.screens.drive.ChapterFullActions
 import com.pleosautography.app.ui.screens.drive.InterviewScreen
 import com.pleosautography.app.ui.screens.drive.LocalDriveSituation
 import com.pleosautography.app.ui.screens.drive.MyBookSidePane
@@ -47,6 +53,8 @@ import com.pleosautography.app.ui.screens.drive.NudgeScreen
 import com.pleosautography.app.ui.screens.drive.PauseScreen
 import com.pleosautography.app.ui.screens.drive.RadioSidePane
 import com.pleosautography.app.ui.screens.main.ChapterAction
+import com.pleosautography.app.ui.screens.main.CompleteScreen
+import com.pleosautography.app.ui.screens.main.TOTAL_CHAPTERS
 import com.pleosautography.app.ui.screens.main.MainScreen
 import com.pleosautography.app.ui.screens.main.ParkedWelcomePane
 import com.pleosautography.app.ui.theme.AutoColors
@@ -62,9 +70,6 @@ import com.pleosautography.app.ui.theme.px
  * Pleos 앱 영역의 세로 한쪽 창은 약 890px, 가로 전체 창은 약 1780px이다.
  */
 private const val TWO_PANE_MIN_WIDTH = 1400f
-
-/** 지금 쓰는 챕터(MVP 시연은 2장 ‘첫 차’). 마일스톤 4 이후 Book·Chapter 테이블에서 읽는다. */
-const val CURRENT_CHAPTER = 2
 
 /** 가로 전체 창 왼쪽 칸의 폭(시안 px, design/html/FullDrive.html·FullPark.html). */
 private const val FULL_LEFT_PANE_WIDTH = 888f
@@ -111,16 +116,34 @@ fun AutographyApp(
     LaunchedEffect(current, services) {
         services ?: return@LaunchedEffect
         if (current == Screen.Interview) {
-            services.interview.start(chapter = CURRENT_CHAPTER, intro = pendingIntro)
+            services.interview.start(intro = pendingIntro)
             pendingIntro = null
         } else {
             services.interview.stop()
         }
         services.setTalking(current == Screen.Interview || current == Screen.ListenDrive)
     }
+    val book = services?.book?.collectAsState(initial = BookState())?.value ?: BookState()
+    val latestBook by rememberUpdatedState(book)
+    val latestDriveMode by rememberUpdatedState(driveMode)
     // “오토야, 잠깐만”: 저장은 이미 되어 있으니 주행 홈(정차 중 시작했다면 Main)으로 간다.
     val stopInterview = { navigator.navigate(if (navigator.backStack.contains(Screen.Main)) Screen.Main else Screen.Driving) }
-    LaunchedEffect(services) { services?.interview?.stopRequests?.collect { stopInterview() } }
+    LaunchedEffect(services) {
+        services?.interview?.events?.collect { event ->
+            when (event) {
+                InterviewEvent.StopRequested -> stopInterview()
+                is InterviewEvent.ChapterFinished -> when {
+                    // 다음 챕터를 이어서 시작했으면 인터뷰 화면 그대로.
+                    event.next != null -> Unit
+                    // 12개 챕터를 모두 채웠으면 자서전 완성 화면.
+                    (latestBook.done + event.chapter).size >= TOTAL_CHAPTERS -> navigator.navigate(Screen.Complete)
+                    // 주행 중이면 주행 홈으로, 정차 중이면 같은 화면(ChapterDone)에 남아 원고를 볼 수 있다.
+                    latestDriveMode == DriveMode.DRIVING -> navigator.navigate(Screen.Driving)
+                    else -> Unit
+                }
+            }
+        }
+    }
     // 인터뷰 밖에서 들린 말을 명령으로 처리한다.
     LaunchedEffect(services) {
         services?.speechInput?.utterances?.collect { text ->
@@ -128,7 +151,8 @@ fun AutographyApp(
                 VoiceCommand.ACCEPT -> if (navigator.current == Screen.Nudge) navigator.reset(Screen.Interview)
                 VoiceCommand.STOP -> if (navigator.current == Screen.Interview) stopInterview()
                 VoiceCommand.WHATS_UP -> if (navigator.current.drivingOnly || navigator.current == Screen.Main) {
-                    pendingIntro = "‘첫 차’ 부분을 다듬고 있었어요. 여기에 대해 조금 더 이야기해 주시겠어요?"
+                    val title = InterviewSession.titleOf(latestBook.current)
+                    pendingIntro = "‘$title’ 부분을 다듬고 있었어요. 여기에 대해 조금 더 이야기해 주시겠어요?"
                     if (navigator.current == Screen.Main) navigator.openFromMain(Screen.Interview) else navigator.navigate(Screen.Interview)
                 }
                 else -> Unit
@@ -161,7 +185,7 @@ fun AutographyApp(
     val navi = situation?.navi?.collectAsState()?.value
     val nudgeReason = situation?.nudgeReason?.collectAsState()?.value
     val notice = situation?.notice?.collectAsState()?.value
-    val liveProgress = services?.currentChapter?.collectAsState(initial = null)?.value
+    val liveProgress = services?.currentProgress?.collectAsState(initial = null)?.value
     val interviewUi = services?.interview?.ui?.collectAsState()?.value ?: InterviewUi()
     val radio = services?.radio?.collectAsState()?.value ?: RadioPlayback()
     val driveSituation = DriveSituation(
@@ -185,6 +209,8 @@ fun AutographyApp(
                 LocalLiveProgress provides liveProgress,
                 LocalInterviewUi provides interviewUi,
                 LocalRadioPlayback provides radio,
+                LocalBookState provides book,
+                LocalAppServices provides services,
             ) {
                 if (navigator.current == Screen.Pause) {
                     ScreenContent(Screen.Pause, navigator, Modifier.fillMaxSize())
@@ -255,6 +281,8 @@ private fun ScreenContent(
     modifier: Modifier = Modifier,
     fullWindow: Boolean = false,
 ) {
+    val services = LocalAppServices.current
+    val interviewUi = LocalInterviewUi.current
     when (screen) {
         Screen.Main -> MainScreen(
             onContinueWriting = { navigator.openFromMain(Screen.Interview) },
@@ -274,8 +302,26 @@ private fun ScreenContent(
         )
         Screen.Interview -> InterviewScreen(
             parkedPane = fullWindow && LocalDriveMode.current == DriveMode.PARKED,
-            // 정차 중에 시작한 인터뷰라면 Main으로, 주행 중이면 주행 홈으로 돌아간다.
-            onStopHere = { navigator.navigate(if (navigator.backStack.contains(Screen.Main)) Screen.Main else Screen.Driving) },
+            // ‘여기까지’: 다 채운 뒤라면 챕터를 마무리하고, 아니면 멈춘다(정차 중 시작했다면 Main, 주행 중이면 주행 홈).
+            onStopHere = {
+                if (interviewUi.chapterFull) {
+                    services?.interview?.finishChapter(startNext = false)
+                } else {
+                    navigator.navigate(if (navigator.backStack.contains(Screen.Main)) Screen.Main else Screen.Driving)
+                }
+            },
+            fullActions = ChapterFullActions(
+                onFinish = { services?.interview?.finishChapter(startNext = false) },
+                onNextChapter = { services?.interview?.finishChapter(startNext = true) },
+                onReadScript = {
+                    if (navigator.backStack.contains(Screen.Main)) navigator.openFromMain(Screen.Script) else navigator.navigate(Screen.Script)
+                },
+            ),
+            modifier = modifier,
+        )
+        Screen.Complete -> CompleteScreen(
+            onPublish = { navigator.navigate(Screen.Settings) },
+            onHome = { navigator.navigate(Screen.Main) },
             modifier = modifier,
         )
         Screen.Nudge -> NudgeScreen(

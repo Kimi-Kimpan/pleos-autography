@@ -263,7 +263,8 @@ fun MyBookSidePane(modifier: Modifier = Modifier) {
             HLine(Modifier.padding(top = 34.px), color = AutoColors.Ink)
         }
         DemoData.chapters.forEach { chapter ->
-            if (chapter.status == ChapterStatus.WRITING) CurrentChapterRow(chapter.live()) else BookChapterRow(chapter.live())
+            val live = chapter.live()
+            if (live.status == ChapterStatus.WRITING) CurrentChapterRow(live) else BookChapterRow(live)
         }
         Spacer(Modifier.weight(1f))
         Row(

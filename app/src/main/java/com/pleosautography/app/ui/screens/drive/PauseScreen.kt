@@ -22,6 +22,7 @@ import com.pleosautography.app.ui.components.PillButton
 import com.pleosautography.app.ui.components.RingTimer
 import com.pleosautography.app.ui.components.RuledText
 import com.pleosautography.app.ui.components.StatusChip
+import com.pleosautography.app.ui.screens.currentChapter
 import com.pleosautography.app.ui.theme.AutoColors
 import com.pleosautography.app.ui.theme.DesignFrame
 import com.pleosautography.app.ui.theme.GowunBatang
@@ -46,7 +47,7 @@ const val PAUSE_TIMEOUT_SECONDS = 3
  */
 @Composable
 fun PauseScreen(onSaveAndStop: () -> Unit, onContinue: () -> Unit, modifier: Modifier = Modifier) {
-    val chapter = DemoData.chapters.first { it.status == ChapterStatus.WRITING }
+    val chapter = currentChapter()
     val demo = DemoData.drive
     Column(
         modifier = modifier

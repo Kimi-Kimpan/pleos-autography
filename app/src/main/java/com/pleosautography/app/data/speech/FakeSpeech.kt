@@ -23,25 +23,51 @@ import org.json.JSONObject
 import kotlin.math.log10
 import kotlin.math.sqrt
 
-/** 시연용 받아쓰기 문장(assets/demo/answers.json). */
-class DemoScript(val seed: Map<String, String>, private val answers: Map<String, String>, private val fallback: String) {
-    fun answerFor(questionId: String?): String = questionId?.let(answers::get) ?: fallback
+/** 시연용 문장(assets/demo/answers.json): 받아 적을 답변과 그 뒤 오토의 후속 질문. */
+class DemoScript(
+    val seed: Map<String, String>,
+    private val answers: Map<String, String>,
+    private val followUps: Map<String, String>,
+    private val extra: String,
+    private val fallback: String,
+) {
+    /** 챕터를 다 채운 뒤 더 이어 말한 것(질문 id가 “NN-extra”)이면 [extra]를 받아 적는다. */
+    fun answerFor(questionId: String?): String = when {
+        questionId == null -> fallback
+        questionId.endsWith(EXTRA_SUFFIX) -> extra
+        else -> answers[questionId] ?: fallback
+    }
+
+    fun followUpFor(questionId: String): String? = followUps[questionId]
 
     companion object {
+        /** 챕터를 다 채운 뒤 덧붙인 이야기의 질문 id 끝. */
+        const val EXTRA_SUFFIX = "-extra"
+
         fun load(context: Context): DemoScript {
             val json = JSONObject(context.assets.open("demo/answers.json").bufferedReader().use { it.readText() })
             fun JSONObject.toMap() = keys().asSequence().associateWith { getString(it) }
-            return DemoScript(json.getJSONObject("seed").toMap(), json.getJSONObject("answers").toMap(), json.getString("fallback"))
+            return DemoScript(
+                seed = json.getJSONObject("seed").toMap(),
+                answers = json.getJSONObject("answers").toMap(),
+                followUps = json.getJSONObject("followUps").toMap(),
+                extra = json.getString("extra"),
+                fallback = json.getString("fallback"),
+            )
         }
     }
 }
 
 /**
  * 시연용 음성 입력. 마이크 음량은 실제로 읽어 파형을 움직이고,
- * 말이 시작됐다가 [SILENCE_END_MS] 동안 조용해지면 준비된 문장을 받아 적는다.
+ * 말이 시작됐다가 [VoiceSettings.silenceEndMs] 동안 조용해지면 준비된 문장을 받아 적는다.
  * Pleos SpeechToText 승인 전까지 쓴다.
  */
-class FakeSpeechInput(private val context: Context, private val script: DemoScript) : SpeechInput {
+class FakeSpeechInput(
+    private val context: Context,
+    private val script: DemoScript,
+    private val settings: VoiceSettings,
+) : SpeechInput {
 
     private val utteranceFlow = MutableSharedFlow<String>(extraBufferCapacity = 8)
     override val utterances: SharedFlow<String> = utteranceFlow.asSharedFlow()
@@ -84,7 +110,7 @@ class FakeSpeechInput(private val context: Context, private val script: DemoScri
                     lastVoice = now
                 }
                 val spoke = speechStart != 0L && lastVoice - speechStart >= MIN_SPEECH_MS
-                if (spoke && now - lastVoice >= SILENCE_END_MS) {
+                if (spoke && now - lastVoice >= settings.silenceEndMs) {
                     return@withContext Heard.Text(script.answerFor(questionId), ((lastVoice - speechStart) / 1000).toInt())
                 }
                 if (now - started >= TIMEOUT_MS) return@withContext Heard.Silence
@@ -127,7 +153,6 @@ class FakeSpeechInput(private val context: Context, private val script: DemoScri
         const val FRAME = RATE / 20 // 50ms
         const val VOICE_LEVEL = 0.35f
         const val MIN_SPEECH_MS = 400L
-        const val SILENCE_END_MS = 1_500L
         const val TIMEOUT_MS = 60_000L
     }
 }

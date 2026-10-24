@@ -43,3 +43,15 @@ interface SpeechOutput {
     val speaking: StateFlow<Boolean>
     suspend fun speak(text: String)
 }
+
+/**
+ * 음성 설정.
+ * @param silenceEndMs 말이 끝난 것으로 볼 침묵 길이. 기본 1.5초, 시연(디버그 빌드)은 1초.
+ *   환경설정 화면에서 바꿀 수 있게 할 값이다.
+ */
+class VoiceSettings(@Volatile var silenceEndMs: Long = DEFAULT_SILENCE_END_MS) {
+    companion object {
+        const val DEFAULT_SILENCE_END_MS = 1_500L
+        const val DEMO_SILENCE_END_MS = 1_000L
+    }
+}

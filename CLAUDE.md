@@ -147,6 +147,9 @@
 - 저장(M4 최소): Room `question`·`answer` 테이블(`data/db`), 질문 은행은 `assets/questions/02.json`(‘첫 차’ 7문항). 진행률 = 답한 질문 수 / 질문 수. 디버그 빌드는 처음 실행 때 예시 답변 3편을 넣는다(`assets/demo/answers.json`의 seed). 스키마는 `app/schemas`.
 - 음성(M5, 시연용): `FakeSpeechInput`은 실제 마이크 음량으로 파형을 움직이고, 말이 1.5초 끊기면 `assets/demo/answers.json`의 문장을 받아 적는다. `CaptionSpeechOutput`은 소리 없이 읽는 시간만 기다린다(오토 목소리는 영상 편집으로). 인터뷰 루프는 `domain/interview/InterviewSession`, 음성 명령은 `VoiceCommand`.
   - 음성 데모 이벤트: `yes`(“응”), `stop`(“오토야, 잠깐만”), `whatsup`(“오토야, 뭐해?”), `answer`(지금 말이 끝난 것으로)
+  - 챕터를 다 채운 뒤: `more`(더 이야기하기, 덧붙인 이야기로 저장), `finish`(“여기까지” 챕터 마무리)
+- 인터뷰 흐름: 말을 멈추면(침묵 기준 `VoiceSettings`: 시연 1초, 기본 1.5초) 받아 적어 저장하고, 오토가 방금 이야기를 받아 되묻는 후속 질문을 한다(`FollowUpGenerator`, 시연은 `ScriptedFollowUps`가 `assets/demo/answers.json`의 followUps를 쓴다. 2단계에서 AI 생성으로 바꿔 끼운다). 후속 질문은 다음 질문으로 이어지고 그 답은 다음 질문의 답으로 저장한다.
+- 챕터 완성: 질문을 다 채우면 인터뷰 화면에서 안내 문구와 버튼만 바뀐다(ChapterFull·ChapterDone). “여기까지”나 챕터 마무리로 `chapter_state`에 완성을 기록하고 다음 챕터로 넘어간다. Complete 화면은 12개 챕터를 모두 채웠을 때만 연다.
   - 소리: 알림 멜로디·오토 발화 중에는 다른 소리를 줄이고(오디오 포커스 duck), 인터뷰·원고 듣기 중에는 멈춘다(transient). 미니 플레이어에 “소리 줄임”·“인터뷰 중 잠시 멈춤”으로 보인다.
   - 에뮬레이터 소리는 Mac 스피커로 나오지 않는다(출력 버스는 동작함). 시연 영상의 소리는 편집으로 입힌다. 시연 진행: `tools/demo/demo.sh`, 장면 구성: `docs/demo-video.md`.
 - 시안 비교 이미지는 `captures/<마일스톤>/`에 둔다(저장소 제외).

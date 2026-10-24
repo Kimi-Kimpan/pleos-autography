@@ -16,10 +16,13 @@ import androidx.compose.runtime.setValue
 import com.pleosautography.app.domain.demo.DemoEvent
 import com.pleosautography.app.ui.AppServices
 import com.pleosautography.app.ui.AutographyApp
-import com.pleosautography.app.ui.CURRENT_CHAPTER
 import com.pleosautography.app.ui.LaunchRequest
 import com.pleosautography.app.ui.navigation.Screen
+import com.pleosautography.app.ui.screens.BookState
 import com.pleosautography.app.ui.theme.DemoOptions
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 
 class MainActivity : ComponentActivity() {
 
@@ -32,6 +35,7 @@ class MainActivity : ComponentActivity() {
             if (result[Car.PERMISSION_SPEED] == true) graph.carVehicle.onSpeedPermissionGranted()
         }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (savedInstanceState == null) launch = readLaunchRequest(intent)
@@ -44,7 +48,13 @@ class MainActivity : ComponentActivity() {
             interview = graph.interview,
             speechInput = graph.speechInput,
             radio = graph.radioAudio.radio,
-            currentChapter = graph.repository.observeProgress(CURRENT_CHAPTER),
+            currentProgress = graph.interview.currentChapter.flatMapLatest(graph.repository::observeProgress),
+            book = combine(
+                graph.interview.currentChapter,
+                graph.repository.observeDoneChapters(),
+                graph.repository.observeStoriesByChapter(),
+                graph.repository.observeBookStats(),
+            ) { current, done, stories, stats -> BookState(current, done, stories, stats) },
             playChime = { graph.radioAudio.ducking { graph.chime.play() } },
             setTalking = graph.radioAudio::setTalking,
         )

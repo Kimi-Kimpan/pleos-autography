@@ -21,6 +21,7 @@ import com.pleosautography.app.ui.components.RuledText
 import com.pleosautography.app.ui.components.SingleLine
 import com.pleosautography.app.ui.components.ScreenStatusChip
 import com.pleosautography.app.ui.screens.live
+import com.pleosautography.app.ui.screens.currentChapter
 import com.pleosautography.app.ui.theme.AutoColors
 import com.pleosautography.app.ui.theme.GowunBatang
 import com.pleosautography.app.ui.theme.TextSpec
@@ -42,7 +43,7 @@ fun DrivingScreen(
     modifier: Modifier = Modifier,
     showMiniPlayer: Boolean = true,
 ) {
-    val chapter = DemoData.chapters.first { it.status == ChapterStatus.WRITING }.live()
+    val chapter = currentChapter()
     Column(modifier.fillMaxSize()) {
         Column(
             modifier = Modifier

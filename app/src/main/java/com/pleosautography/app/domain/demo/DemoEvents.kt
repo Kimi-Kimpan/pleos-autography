@@ -3,6 +3,7 @@ package com.pleosautography.app.domain.demo
 import android.util.Log
 import com.pleosautography.app.data.speech.SpeechInput
 import com.pleosautography.app.data.vehicle.DemoVehicleState
+import com.pleosautography.app.domain.interview.InterviewSession
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -28,6 +29,10 @@ enum class DemoEvent(val id: String, val label: String) {
     SAY_STOP("stop", "“오토야, 잠깐만”"),
     SAY_WHATS_UP("whatsup", "“오토야, 뭐해?”"),
     ANSWER_DONE("answer", "말 끝내기"),
+
+    // 챕터를 다 채운 뒤
+    MORE("more", "더 이야기하기"),
+    FINISH("finish", "“여기까지” 챕터 마무리"),
     ;
 
     companion object {
@@ -36,7 +41,11 @@ enum class DemoEvent(val id: String, val label: String) {
 }
 
 /** 데모 이벤트를 받아 Fake 상태에 반영한다. 차량 상태 밖의 이벤트는 [events]로 흘려보낸다. */
-class DemoEvents(private val vehicle: DemoVehicleState, private val speech: SpeechInput) {
+class DemoEvents(
+    private val vehicle: DemoVehicleState,
+    private val speech: SpeechInput,
+    private val interview: InterviewSession,
+) {
     private val flow = MutableSharedFlow<DemoEvent>(extraBufferCapacity = 8)
     val events: SharedFlow<DemoEvent> = flow.asSharedFlow()
 
@@ -49,7 +58,8 @@ class DemoEvents(private val vehicle: DemoVehicleState, private val speech: Spee
             DemoEvent.SAY_YES -> speech.inject("응")
             DemoEvent.SAY_STOP -> speech.inject("오토야, 잠깐만")
             DemoEvent.SAY_WHATS_UP -> speech.inject("오토야, 뭐해?")
-            DemoEvent.ANSWER_DONE -> speech.finishNow()
+            DemoEvent.ANSWER_DONE, DemoEvent.MORE -> speech.finishNow()
+            DemoEvent.FINISH -> interview.finishChapter(startNext = false)
             else -> Unit
         }
         flow.tryEmit(event)

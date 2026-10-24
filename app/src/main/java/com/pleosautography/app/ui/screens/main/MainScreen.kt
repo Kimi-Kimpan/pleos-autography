@@ -17,6 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -35,6 +36,7 @@ import com.pleosautography.app.ui.components.RuledText
 import com.pleosautography.app.ui.components.StatusChip
 import com.pleosautography.app.ui.components.VLine
 import com.pleosautography.app.ui.icons.AutoIcons
+import com.pleosautography.app.ui.screens.currentChapter
 import com.pleosautography.app.ui.screens.live
 import com.pleosautography.app.ui.theme.AutoColors
 import com.pleosautography.app.ui.theme.AutoType
@@ -200,8 +202,10 @@ private fun ChapterSummary.metaText(): String = when (status) {
 }
 
 /** 정차 중 인사말. 세로 창 머리글은 두 줄, 가로 전체 창 오른쪽 칸은 세 줄로 쓴다. */
+@Composable
+@ReadOnlyComposable
 fun parkedGreeting(singleLine: Boolean): String {
-    val title = (DemoData.chapters.firstOrNull { it.status == ChapterStatus.WRITING } ?: DemoData.chapters.first()).title
+    val title = currentChapter().title
     val story = if (singleLine) "‘$title’ 이야기를 이어서 써 볼까요?" else "‘$title’ 이야기를\n이어서 써 볼까요?"
     return "안녕하세요 ${DemoData.OWNER_CALL_NAME}님!\n$story"
 }
