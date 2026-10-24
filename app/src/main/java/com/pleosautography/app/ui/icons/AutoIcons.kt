@@ -24,6 +24,9 @@ object AutoIcons {
     val ChevronUp = icon("ChevronUp") { stroke("M6 15l6-6 6 6", 2.6f) }
     val ChevronDown = icon("ChevronDown") { stroke("M6 9l6 6 6-6", 2.6f) }
     val ChevronLeft = icon("ChevronLeft") { stroke("M15 6l-6 6 6 6", 2.6f) }
+    val ChevronRight = icon("ChevronRight") { stroke("M9 6l6 6-6 6", 2.4f) }
+    val Heart = icon("Heart") { stroke("M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z", 2.2f) }
+    val Trash = icon("Trash") { stroke("M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13", 2f) }
     val Clip = icon("Clip") {
         stroke("M16.5 7v8.5a4.5 4.5 0 0 1-9 0V6a3 3 0 0 1 6 0v9.5a1.5 1.5 0 0 1-3 0V7.5", 2f, cap = StrokeCap.Round)
     }

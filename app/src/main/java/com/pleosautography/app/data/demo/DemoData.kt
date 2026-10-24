@@ -80,6 +80,9 @@ data class RadioDemo(
     val duration: String = "18:05",
     val position: Float = 0.70f,
     val genres: List<String> = listOf("전체", "택시", "화물 · 택배", "자영업", "장거리"),
+    /** 정차 중 플레이어는 칸이 넓어 장르를 하나 더 보인다. */
+    val moreGenres: List<String> = listOf("해외 · 번역"),
+    val favoriteCount: Int = 12,
     val upNext: List<RadioEpisode> = listOf(
         RadioEpisode("새벽 4시, 첫 손님", "김○○ 기사님 · 개인택시 22년 차", "택시"),
         RadioEpisode("국경을 세 번 넘은 밤", "Marek K. 기사님 · 엑시언트 장거리 · 폴란드", "해외 · 번역"),

@@ -44,7 +44,9 @@ import com.pleosautography.app.ui.screens.LocalLiveProgress
 import com.pleosautography.app.ui.screens.LocalRadioPlayback
 import com.pleosautography.app.ui.screens.PlaceholderScreen
 import com.pleosautography.app.ui.screens.drive.ListenDriveScreen
+import com.pleosautography.app.ui.screens.player.PlayerScreen
 import com.pleosautography.app.ui.screens.script.ScriptScreen
+import com.pleosautography.app.ui.screens.settings.SettingsScreen
 import com.pleosautography.app.ui.screens.drive.DriveSituation
 import com.pleosautography.app.ui.screens.drive.DrivingScreen
 import com.pleosautography.app.ui.screens.drive.ChapterFullActions
@@ -258,6 +260,7 @@ private fun AppPanes(
             bookTitle = DemoData.BOOK_TITLE,
             onSettings = { navigator.navigate(Screen.Settings) },
             onLogoLongPress = onLogoLongPress,
+            settingsOpen = navigator.current == Screen.Settings,
         )
         if (twoPane && driveMode == DriveMode.DRIVING) {
             val talking = navigator.current.takeIf { it.driving } ?: Screen.Driving
@@ -343,6 +346,18 @@ private fun ScreenContent(
             onStopHere = { navigator.navigate(if (navigator.backStack.contains(Screen.Main)) Screen.Main else Screen.Driving) },
             onCallOto = {},
             modifier = modifier,
+        )
+        Screen.Player -> PlayerScreen(
+            onCollapse = { if (navigator.canGoBack) navigator.back() else navigator.navigate(Screen.Main) },
+            modifier = modifier,
+        )
+        Screen.Settings -> SettingsScreen(
+            onHome = { navigator.navigate(Screen.Main) },
+            // 출판 신청 흐름은 2단계 범위다.
+            onPublish = {},
+            onNewBook = { navigator.navigate(Screen.Onboarding) },
+            modifier = modifier,
+            showHome = !fullWindow,
         )
         Screen.Complete -> CompleteScreen(
             onPublish = { navigator.navigate(Screen.Settings) },

@@ -136,8 +136,9 @@ fun RadioSidePane(modifier: Modifier = Modifier) {
     }
 }
 
+/** 라디오 표지(228×304). 플레이어 화면도 쓴다. */
 @Composable
-private fun RadioCover(volume: String) {
+internal fun RadioCover(volume: String) {
     Column(
         modifier = Modifier
             .size(width = 228.px, height = 304.px)
@@ -163,55 +164,56 @@ private fun RadioCover(volume: String) {
 }
 
 @Composable
-private fun SeekBar(position: Float, modifier: Modifier = Modifier) {
+internal fun SeekBar(position: Float, modifier: Modifier = Modifier, knobPx: Float = 26f) {
     // 시안처럼 막대 높이(12px)만 자리를 차지하고, 손잡이(26px)는 위아래로 넘친다.
     Box(modifier.fillMaxWidth().height(12.px), contentAlignment = Alignment.CenterStart) {
         ProgressBar(position)
         Row(Modifier.fillMaxWidth().wrapContentHeight(unbounded = true), verticalAlignment = Alignment.CenterVertically) {
             Spacer(Modifier.weight(position.coerceAtLeast(0.001f)))
-            Box(Modifier.offset(x = (-13).px).size(26.px).clip(CircleShape).background(AutoColors.Ink))
+            Box(Modifier.offset(x = (-knobPx / 2).px).size(knobPx.px).clip(CircleShape).background(AutoColors.Ink))
             Spacer(Modifier.weight((1f - position).coerceAtLeast(0.001f)))
         }
     }
 }
 
 @Composable
-private fun SearchField() {
+internal fun SearchField(heightPx: Float = 72f, textPx: Float = 23f, iconPx: Float = 28f, trailing: (@Composable () -> Unit)? = null) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(72.px)
+            .height(heightPx.px)
             .border(2.5.px, AutoColors.Ink, RoundedCornerShape(percent = 50))
             .padding(horizontal = 26.px),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.px),
     ) {
-        Image(rememberVectorPainter(AutoIcons.Search), null, Modifier.size(28.px), colorFilter = ColorFilter.tint(AutoColors.Ink))
-        BasicText("이야기, 기사님, 장소 검색", style = TextSpec(23f, FontWeight.SemiBold).style())
+        Image(rememberVectorPainter(AutoIcons.Search), null, Modifier.size(iconPx.px), colorFilter = ColorFilter.tint(AutoColors.Ink))
+        BasicText("이야기, 기사님, 장소 검색", style = TextSpec(textPx, FontWeight.SemiBold).style(), modifier = Modifier.weight(1f))
+        trailing?.invoke()
     }
 }
 
 @Composable
-private fun GenreChip(text: String, selected: Boolean) {
+internal fun GenreChip(text: String, selected: Boolean, heightPx: Float = 56f, textPx: Float = 21f, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(percent = 50)
     Box(
-        modifier = Modifier
-            .height(56.px)
+        modifier = modifier
+            .height(heightPx.px)
             .clip(shape)
             .then(if (selected) Modifier.background(AutoColors.Ink) else Modifier.border(2.px, AutoColors.Ink, shape))
             .padding(horizontal = 22.px),
         contentAlignment = Alignment.Center,
     ) {
-        BasicText(text, style = TextSpec(21f, FontWeight.Bold).style(if (selected) AutoColors.OnInk else AutoColors.Ink), maxLines = 1)
+        BasicText(text, style = TextSpec(textPx, FontWeight.Bold).style(if (selected) AutoColors.OnInk else AutoColors.Ink), maxLines = 1)
     }
 }
 
 @Composable
-private fun EpisodeRow(episode: RadioEpisode) {
+internal fun EpisodeRow(episode: RadioEpisode, heightPx: Float = 106f, gapPx: Float = 18f, titlePx: Float = 27f, metaPx: Float = 19f) {
     Row(
-        modifier = Modifier.fillMaxWidth().height(106.px),
+        modifier = Modifier.fillMaxWidth().height(heightPx.px),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(18.px),
+        horizontalArrangement = Arrangement.spacedBy(gapPx.px),
     ) {
         Box(
             modifier = Modifier
@@ -224,8 +226,8 @@ private fun EpisodeRow(episode: RadioEpisode) {
             BasicText("Driving\nTogether", style = TextSpec(9f, FontWeight.ExtraBold, lineHeightPx = 9.9f).style())
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.px)) {
-            SingleLine(episode.title, TextSpec(27f, FontWeight.Bold), AutoColors.Ink)
-            SingleLine(episode.narrator, TextSpec(19f, FontWeight.Medium), AutoColors.InkSecondary)
+            SingleLine(episode.title, TextSpec(titlePx, FontWeight.Bold), AutoColors.Ink)
+            SingleLine(episode.narrator, TextSpec(metaPx, FontWeight.Medium), AutoColors.InkSecondary)
         }
         StatusChip(episode.tag, sizePx = 18f, horizontalPaddingPx = 12f, verticalPaddingPx = 3f)
         CircleIconButton(AutoIcons.Play, "${episode.title} 재생", onClick = {}, sizePx = 72f, iconSizePx = 28f)
@@ -368,18 +370,18 @@ private fun CurrentChapterRow(chapter: ChapterSummary) {
 
 /** 15초 뒤로: 아이콘 아래에 작은 “15”. */
 @Composable
-private fun RewindButton() {
+internal fun RewindButton(sizePx: Float = 80f, iconPx: Float = 28f, labelPx: Float = 12f) {
     Box(
         modifier = Modifier
-            .size(80.px)
+            .size(sizePx.px)
             .clip(CircleShape)
             .border(2.5.px, AutoColors.Ink, CircleShape)
             .clickable(role = Role.Button, onClickLabel = "15초 뒤로") {},
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Image(rememberVectorPainter(AutoIcons.Rewind), "15초 뒤로", Modifier.size(28.px), colorFilter = ColorFilter.tint(AutoColors.Ink))
-            BasicText("15", style = TextSpec(12f, FontWeight.ExtraBold, lineHeightPx = 13f).style())
+            Image(rememberVectorPainter(AutoIcons.Rewind), "15초 뒤로", Modifier.size(iconPx.px), colorFilter = ColorFilter.tint(AutoColors.Ink))
+            BasicText("15", style = TextSpec(labelPx, FontWeight.ExtraBold, lineHeightPx = labelPx + 1f).style())
         }
     }
 }

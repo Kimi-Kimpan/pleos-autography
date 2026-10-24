@@ -1,6 +1,7 @@
 package com.pleosautography.app.ui.components
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -39,6 +40,7 @@ import com.pleosautography.app.ui.theme.px
  * 세로 앱 화면 왼쪽의 72px 책등 띠.
  * 위에는 자서전 제목을 세로로, 아래에는 ‘Autography’ 로고와 설정 버튼(주행 중 비활성)을 둔다.
  * @param onLogoLongPress 디버그 빌드에서만: 로고를 길게 누르면 데모 패널을 연다.
+ * @param settingsOpen 환경설정 화면이 열려 있으면 설정 버튼을 꽉 찬 원으로 그린다.
  */
 @Composable
 fun Spine(
@@ -46,6 +48,7 @@ fun Spine(
     onSettings: () -> Unit,
     modifier: Modifier = Modifier,
     onLogoLongPress: (() -> Unit)? = null,
+    settingsOpen: Boolean = false,
 ) {
     Row(modifier.fillMaxHeight().width(72.px)) {
         Column(
@@ -75,7 +78,7 @@ fun Spine(
                             },
                         ),
                 )
-                SettingsButton(onSettings)
+                SettingsButton(onSettings, settingsOpen)
             }
         }
         VLine(color = AutoColors.Ink)
@@ -100,21 +103,21 @@ private fun StackedTitle(title: String) {
 }
 
 @Composable
-private fun SettingsButton(onClick: () -> Unit) {
+private fun SettingsButton(onClick: () -> Unit, open: Boolean) {
     val enabled = LocalDriveMode.current == DriveMode.PARKED
     Box(
         modifier = Modifier
             .size(52.px)
             .alpha(if (enabled) 1f else DisabledAlpha)
             .clip(CircleShape)
-            .border(2.px, AutoColors.Ink, CircleShape)
+            .then(if (open) Modifier.background(AutoColors.Ink) else Modifier.border(2.px, AutoColors.Ink, CircleShape))
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Image(
             painter = rememberVectorPainter(AutoIcons.Settings),
             contentDescription = "환경설정",
-            colorFilter = ColorFilter.tint(AutoColors.Ink),
+            colorFilter = ColorFilter.tint(if (open) AutoColors.OnInk else AutoColors.Ink),
             modifier = Modifier.size(26.px),
         )
     }
