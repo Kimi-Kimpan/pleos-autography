@@ -67,6 +67,7 @@ class ChapterFullActions(
  * 챕터 질문을 모두 채우면 같은 화면에서 안내 문구와 버튼만 바뀐다(시안 ChapterFull, 정차 중 ChapterDone).
  *
  * @param parkedPane 가로 전체 창 정차 중 오른쪽 칸에 열 때(시안 FullParkInterview).
+ * @param paused 플레이어 시트를 열어 멈춘 상태. 마이크는 꺼져 있고, ‘이어서 말하기’를 눌러야 다시 듣는다.
  *   머리글 없이 질문부터 시작한다. ‘여기까지’는 왼쪽 목록의 그 챕터 ‘이어쓰기’ 자리에 파랗게 둔다(이 칸에는 두지 않는다).
  */
 @Composable
@@ -75,6 +76,8 @@ fun InterviewScreen(
     fullActions: ChapterFullActions,
     modifier: Modifier = Modifier,
     parkedPane: Boolean = false,
+    paused: Boolean = false,
+    onResume: () -> Unit = {},
 ) {
     val ui = LocalInterviewUi.current
     // 인터뷰가 다루는 챕터(마무리한 뒤에도 그 챕터를 보인다). 아직 시작 전이면 지금 쓰는 챕터.
@@ -99,7 +102,9 @@ fun InterviewScreen(
                     Modifier.padding(start = 40.px, top = 40.px, end = 40.px)
                 },
             )
-            if (full) {
+            if (paused) {
+                PausedBlock(onResume, Modifier.weight(1f).padding(horizontal = if (parkedPane) 16.px else 40.px))
+            } else if (full) {
                 ChapterFullBlock(chapter, fullActions, Modifier.weight(1f).padding(horizontal = if (parkedPane) 0.px else 40.px))
             } else {
                 ListeningBlock(
@@ -191,6 +196,34 @@ private fun ListeningBlock(chapter: ChapterSummary, hintTopPx: Float, modifier: 
             text = ui.question?.followUpHint ?: LocalLiveProgress.current?.nextQuestion?.followUpHint ?: DemoData.drive.followUpHint,
             style = Hint.style(AutoColors.InkMuted).copy(textAlign = TextAlign.Center),
             modifier = Modifier.padding(top = hintTopPx.px),
+        )
+    }
+}
+
+/** 멈춤: 마이크 꺼짐, 저장 안내, 파란 ‘이어서 말하기’. */
+@Composable
+private fun PausedBlock(onResume: () -> Unit, modifier: Modifier) {
+    Column(
+        modifier = modifier.fillMaxWidth().padding(top = 60.px, bottom = 60.px),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(24.px, Alignment.CenterVertically),
+    ) {
+        VoiceWave(levels = waveLevels(InterviewPhase.ASKING, 0f))
+        BasicText("잠시 멈췄어요", style = Listening.style(AutoColors.InkSecondary))
+        BasicText(
+            "지금까지 하신 이야기는 저장했어요.\n마이크는 꺼져 있어요.",
+            style = Hint.style(AutoColors.InkMuted).copy(textAlign = TextAlign.Center),
+        )
+        PillButton(
+            text = "이어서 말하기",
+            onClick = onResume,
+            modifier = Modifier.padding(top = 20.px).fillMaxWidth(),
+            icon = AutoIcons.MicFilled,
+            filled = true,
+            heightPx = 120f,
+            iconSizePx = 40f,
+            gapPx = 16f,
+            textSpec = FinishText,
         )
     }
 }

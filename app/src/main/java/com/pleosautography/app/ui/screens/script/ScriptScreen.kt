@@ -70,6 +70,7 @@ import com.pleosautography.app.ui.components.rememberNoticeState
 import com.pleosautography.app.ui.icons.AutoIcons
 import com.pleosautography.app.ui.screens.LocalBookState
 import com.pleosautography.app.ui.screens.LocalInterviewUi
+import com.pleosautography.app.ui.screens.LocalPlayerSheetOpen
 import com.pleosautography.app.ui.screens.chapterSummary
 import com.pleosautography.app.ui.screens.currentChapter
 import com.pleosautography.app.ui.theme.AutoColors
@@ -170,6 +171,25 @@ fun ScriptScreen(
     val notice = rememberNoticeState()
     val scroll = rememberScrollState()
     val paragraphTops = remember { mutableStateMapOf<Int, Int>() }
+
+    // 플레이어 시트가 열리면 마이크·낭독을 멈춘다. 이어쓰기·말로 고치기는 받아 적은 데까지 이미 저장했으니 입력창만 닫는다.
+    val sheetOpen = LocalPlayerSheetOpen.current
+    LaunchedEffect(sheetOpen) {
+        if (!sheetOpen) return@LaunchedEffect
+        mode = ScriptMode.VIEW
+        reading = null
+        // 말로 고치기를 다 들은 뒤라면(미리보기까지) 그 고침을 저장한다.
+        val preview = fixPreview
+        val paragraph = fixing?.let { paragraphs.getOrNull(it) }
+        val id = paragraph?.answerId
+        if (preview != null && paragraph != null && id != null) {
+            services?.launch { services.repository.updateTranscript(id, paragraph.text.replaceFirst(preview.wrong, preview.fixed)) }
+        }
+        fixing = null
+        fixHeard = ""
+        fixPreview = null
+        fixProblem = null
+    }
 
     // 다시 듣기(한 문단): 문장마다 읽는 시간만큼 칠한다.
     LaunchedEffect(reading) {

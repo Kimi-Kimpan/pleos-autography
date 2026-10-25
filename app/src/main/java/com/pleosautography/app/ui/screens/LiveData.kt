@@ -53,6 +53,9 @@ val LocalInterviewUi = staticCompositionLocalOf { InterviewUi() }
 /** 오토그래피 라디오 소리 상태(인터뷰 중 멈춤·소리 줄임). */
 val LocalRadioPlayback = staticCompositionLocalOf { RadioPlayback() }
 
+/** 플레이어 시트가 열려 있는지. 열리면 화면들은 마이크·낭독을 멈춘다. */
+val LocalPlayerSheetOpen = staticCompositionLocalOf { false }
+
 /** 오토그래피 라디오 재생 위치(지금 편·다음 편·일시정지). */
 val LocalRadioState = staticCompositionLocalOf { RadioState() }
 

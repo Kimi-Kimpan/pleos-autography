@@ -74,6 +74,13 @@ class ListenSession(
         state.value = ListenUi()
     }
 
+    /** 읽는 중이면 멈춘다(플레이어 시트가 열릴 때). */
+    fun pause() {
+        if (!active || !state.value.playing) return
+        job?.cancel()
+        state.update { it.copy(playing = false) }
+    }
+
     /** 일시정지·이어 듣기. 다 읽었으면 처음부터. */
     fun togglePlay() {
         if (!active) return

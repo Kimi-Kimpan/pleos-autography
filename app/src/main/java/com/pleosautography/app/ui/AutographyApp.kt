@@ -2,6 +2,9 @@ package com.pleosautography.app.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import com.pleosautography.app.ui.screens.LocalPlayerSheetOpen
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -175,9 +178,27 @@ fun AutographyApp(
 
     // 인터뷰는 인터뷰 화면이 열려 있는 동안만 돈다. 원고 듣기도 같다. 둘 다 다른 소리를 멈춘다.
     val current = navigator.current
-    LaunchedEffect(current, services) {
+    // 플레이어 시트가 열린 동안 인터뷰는 일시정지(마이크 꺼짐). 닫아도 ‘이어서 말하기’를 누를 때까지 듣지 않는다.
+    var interviewPaused by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(current) { if (current != Screen.Interview) interviewPaused = false }
+    // 시트가 열리면 다른 칸의 마이크·소리를 모두 멈춘다(두 소리가 동시에 나지 않게). 인터뷰는 저장 후 일시정지.
+    LaunchedEffect(playerSheet.open, services) {
         services ?: return@LaunchedEffect
-        if (current == Screen.Interview) {
+        if (!playerSheet.open) return@LaunchedEffect
+        if (navigator.current == Screen.Interview && !interviewPaused) {
+            playerSheet.saving = true
+            interviewPaused = true
+            services.interview.stop() // 받아 적은 답변은 이미 저장되어 있다.
+            kotlinx.coroutines.delay(SAVE_NOTE_MS)
+            playerSheet.saving = false
+            playerSheet.saved = true
+        }
+        services.listen.pause()
+    }
+    LaunchedEffect(playerSheet.open) { if (!playerSheet.open) playerSheet.saved = false }
+    LaunchedEffect(current, services, interviewPaused) {
+        services ?: return@LaunchedEffect
+        if (current == Screen.Interview && !interviewPaused) {
             services.interview.start(intro = pendingIntro, chapter = pendingChapter)
             pendingIntro = null
             pendingChapter = null
@@ -185,7 +206,7 @@ fun AutographyApp(
             services.interview.stop()
         }
         if (current == Screen.ListenDrive) services.listen.start() else services.listen.stop()
-        services.setTalking(current == Screen.Interview || current == Screen.ListenDrive)
+        services.setTalking((current == Screen.Interview && !interviewPaused) || current == Screen.ListenDrive)
     }
     val book = services?.book?.collectAsState(initial = BookState())?.value ?: BookState()
     val latestBook by rememberUpdatedState(book)
@@ -297,6 +318,8 @@ fun AutographyApp(
                 LocalOnboardingDraft provides draft,
                 LocalStartChapter provides { chapter -> pendingChapter = chapter },
                 LocalPlayerSheet provides playerSheet,
+                LocalPlayerSheetOpen provides playerSheet.open,
+                LocalInterviewPause provides InterviewPause(interviewPaused) { interviewPaused = false },
                 LocalScriptChapter provides ScriptChapter(scriptChapter) { scriptChapter = it },
                 LocalBookState provides book,
                 LocalAppServices provides services,
@@ -363,11 +386,15 @@ private fun AppPanes(
                 PlayerSheetHost(Modifier.fillMaxSize())
             }
             VLine(color = AutoColors.Ink)
-            if (detail != null) {
-                // 창 오른쪽 위 상태 칩과 겹치지 않게 오른쪽 칸 위에 칩 높이만큼 비운다.
-                ScreenContent(detail, navigator, Modifier.weight(1f).padding(top = DETAIL_CHIP_INSET.px), fullWindow = true)
-            } else {
-                ParkedWelcomePane(Modifier.weight(1f))
+            // 시트가 열린 동안 오른쪽 칸은 흐린 막으로 덮고 입력을 막는다. 막을 누르면 시트가 닫힌다.
+            Box(Modifier.weight(1f).fillMaxHeight()) {
+                if (detail != null) {
+                    // 창 오른쪽 위 상태 칩과 겹치지 않게 오른쪽 칸 위에 칩 높이만큼 비운다.
+                    ScreenContent(detail, navigator, Modifier.fillMaxSize().padding(top = DETAIL_CHIP_INSET.px), fullWindow = true)
+                } else {
+                    ParkedWelcomePane(Modifier.fillMaxSize())
+                }
+                SheetScrim(Modifier.fillMaxSize())
             }
         } else {
             // 세로 한쪽 창: 플레이어는 화면 전체(책등 오른쪽)를 아래→위로 덮는다.
@@ -379,10 +406,15 @@ private fun AppPanes(
     }
 }
 
-/** 플레이어 시트가 열려 있는지. 저장해 두어 창 크기가 바뀌어도 유지한다. */
+/**
+ * 플레이어 시트가 열려 있는지. 저장해 두어 창 크기가 바뀌어도 유지한다.
+ * [saving]·[saved]: 시트를 열며 인터뷰를 멈추고 저장하는 동안 흐린 막에 보일 안내.
+ */
 @Stable
 private class PlayerSheet(open: Boolean = false) {
     var open by mutableStateOf(open)
+    var saving by mutableStateOf(false)
+    var saved by mutableStateOf(false)
 
     companion object {
         val Saver = androidx.compose.runtime.saveable.Saver<PlayerSheet, Boolean>(save = { it.open }, restore = { PlayerSheet(it) })
@@ -390,6 +422,44 @@ private class PlayerSheet(open: Boolean = false) {
 }
 
 private val LocalPlayerSheet = staticCompositionLocalOf { PlayerSheet() }
+
+/** 인터뷰 일시정지 여부와 ‘이어서 말하기’. */
+private class InterviewPause(val paused: Boolean, val resume: () -> Unit)
+
+private val LocalInterviewPause = staticCompositionLocalOf { InterviewPause(false) {} }
+
+/** ‘저장 중…’을 보이는 시간. */
+private const val SAVE_NOTE_MS = 800L
+
+/** 흐린 막: 배경색 60%. 시트와 같이 300ms로 나타나고 사라진다. */
+private val ScrimColor = AutoColors.Bg.copy(alpha = 0.6f)
+
+/** 가로 전체 창 오른쪽 칸을 덮는 흐린 막. 누르면 시트를 닫는다. 멈춘 일이 있으면 ‘저장 중…’ → ‘저장됨’. */
+@Composable
+private fun SheetScrim(modifier: Modifier = Modifier) {
+    val sheet = LocalPlayerSheet.current
+    AnimatedVisibility(
+        visible = sheet.open,
+        modifier = modifier,
+        enter = fadeIn(tween(PLAYER_SHEET_MS)),
+        exit = fadeOut(tween(PLAYER_SHEET_MS)),
+    ) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(ScrimColor)
+                .pointerInput(Unit) { detectTapGestures { sheet.open = false } },
+            contentAlignment = Alignment.Center,
+        ) {
+            val note = when {
+                sheet.saving -> "저장 중…"
+                sheet.saved -> "✓ 저장됨 · 누르면 돌아가요"
+                else -> null
+            }
+            if (note != null) StatusChip(note, filled = true, sizePx = 26f, horizontalPaddingPx = 26f, verticalPaddingPx = 10f)
+        }
+    }
+}
 
 /** 펼치는 시간(약 300ms). 사용자가 누를 때만 일어나는 전환이라 주행 중 자동 애니메이션 규칙에 걸리지 않는다. */
 private const val PLAYER_SHEET_MS = 300
@@ -470,6 +540,8 @@ private fun ScreenContent(
         )
         Screen.Interview -> InterviewScreen(
             parkedPane = fullWindow && LocalDriveMode.current == DriveMode.PARKED,
+            paused = LocalInterviewPause.current.paused,
+            onResume = LocalInterviewPause.current.resume,
             onStopHere = stopHere,
             fullActions = ChapterFullActions(
                 onFinish = { services?.interview?.finishChapter(startNext = false) },
@@ -546,6 +618,8 @@ private fun ScreenContent(
                     services?.radioPlayer?.playSimilar()
                     navigator.navigate(Screen.Driving)
                 } else {
+                    // “홈으로”와 같게 홈으로 간 뒤, 그 위로 플레이어 시트를 올린다.
+                    navigator.navigate(Screen.Main)
                     playerSheet.open = true
                 }
             },
