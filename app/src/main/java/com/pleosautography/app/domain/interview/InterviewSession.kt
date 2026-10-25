@@ -8,6 +8,7 @@ import com.pleosautography.app.data.repo.AutographyRepository
 import com.pleosautography.app.data.speech.Heard
 import com.pleosautography.app.data.speech.SpeechInput
 import com.pleosautography.app.data.speech.SpeechOutput
+import com.pleosautography.app.domain.listen.ListenSession
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -47,9 +48,34 @@ data class InterviewUi(
     val chapterFull: Boolean = false,
 )
 
+/**
+ * 인터뷰 한 번(시작 ~ ‘여기까지’)의 요약. ‘여기까지’ 뒤 요약 화면이 보인다.
+ * @param sentences 이번에 새로 적힌 문장 수(덧붙인 이야기 포함).
+ * @param answeredBefore 시작할 때 답한 질문 수. [answeredAfter]는 끝날 때.
+ * @param chapterDone 챕터를 마무리(완성)했는지.
+ */
+data class InterviewSummary(
+    val chapter: Int,
+    val sentences: Int,
+    val durationSec: Int,
+    val answeredBefore: Int,
+    val answeredAfter: Int,
+    val total: Int,
+    val chapterDone: Boolean,
+) {
+    val progressBefore: Float get() = if (total == 0) 0f else answeredBefore.toFloat() / total
+    val progressAfter: Float get() = if (total == 0) 0f else answeredAfter.toFloat() / total
+
+    /** 완성까지 남은 질문 수. */
+    val remaining: Int get() = (total - answeredAfter).coerceAtLeast(0)
+}
+
 sealed interface InterviewEvent {
     /** “오토야, 잠깐만”: 멈춰 달라고 했다(저장은 이미 끝났다). */
     data object StopRequested : InterviewEvent
+
+    /** 인터뷰 중 들린 다른 명령(“들려줘” 등). 답변으로 저장하지 않고 화면에 넘긴다. */
+    data class Command(val command: VoiceCommand, val text: String) : InterviewEvent
 
     /** 챕터를 마무리했다. [next]가 있으면 그 챕터 인터뷰를 이어서 시작했다. */
     data class ChapterFinished(val chapter: Int, val next: Int?) : InterviewEvent
@@ -82,6 +108,29 @@ class InterviewSession(
 
     private var job: Job? = null
 
+    /** 지금 인터뷰 한 번의 기록(요약 화면용). */
+    private class SessionStats(val chapter: Int, val startMs: Long, val answeredBefore: Int, val total: Int) {
+        var sentences = 0
+        var newAnswers = 0
+
+        fun toSummary(chapterDone: Boolean) = InterviewSummary(
+            chapter = chapter,
+            sentences = sentences,
+            durationSec = ((System.currentTimeMillis() - startMs) / 1000).toInt(),
+            answeredBefore = answeredBefore,
+            answeredAfter = if (chapterDone) total else (answeredBefore + newAnswers).coerceAtMost(total),
+            total = total,
+            chapterDone = chapterDone,
+        )
+    }
+
+    @Volatile private var stats: SessionStats? = null
+
+    private val summaryState = MutableStateFlow<InterviewSummary?>(null)
+
+    /** 마지막으로 끝낸 인터뷰의 요약(‘여기까지’ 뒤 요약 화면). */
+    val summary: StateFlow<InterviewSummary?> = summaryState.asStateFlow()
+
     /**
      * 인터뷰를 시작한다. 이미 진행 중이거나 쓰는 책이 없으면 그대로 둔다.
      * @param chapter 이 챕터로 시작한다(홈에서 다른 챕터를 고른 직후, 저장이 화면보다 늦을 수 있어서 직접 준다).
@@ -101,6 +150,8 @@ class InterviewSession(
     fun stop() {
         job?.cancel()
         job = null
+        stats?.let { summaryState.value = it.toSummary(chapterDone = false) }
+        stats = null
         state.value = InterviewUi()
         audio.setTalking(false)
     }
@@ -114,6 +165,11 @@ class InterviewSession(
         val chapter = state.value.chapter.takeIf { it > 0 } ?: book.currentChapter
         job?.cancel()
         job = null
+        if (!startNext) {
+            summaryState.value = (stats?.takeIf { it.chapter == chapter }?.toSummary(chapterDone = true))
+                ?: InterviewSummary(chapter, 0, 0, 0, 0, 0, chapterDone = true)
+        }
+        stats = null
         scope.launch {
             repository.markChapterDone(book.id, chapter)
             // 다음에 쓸 챕터로 넘어간다. ‘다음 챕터’면 바로 인터뷰를 이어 간다.
@@ -132,6 +188,7 @@ class InterviewSession(
 
     private suspend fun run(book: Long, chapter: Int, intro: String?) {
         var prompt: String? = null
+        repository.observeProgress(book, chapter).first().let { stats = SessionStats(chapter, System.currentTimeMillis(), it.answered, it.total) }
         intro?.let { say(chapter, it, null) }
         while (true) {
             val progress = repository.observeProgress(book, chapter).first()
@@ -149,11 +206,24 @@ class InterviewSession(
                 prompt = text // 아무 말이 없으면 같은 말을 다시 기다린다.
                 continue
             }
-            if (VoiceCommand.parse(heard.text) == VoiceCommand.STOP) {
-                eventFlow.tryEmit(InterviewEvent.StopRequested)
-                return
+            when (val command = VoiceCommand.parseCommand(heard.text)) {
+                null -> Unit
+                VoiceCommand.STOP -> {
+                    eventFlow.tryEmit(InterviewEvent.StopRequested)
+                    return
+                }
+                else -> {
+                    // 명령은 원고에 넣지 않는다. 같은 질문을 다시 기다린다.
+                    eventFlow.tryEmit(InterviewEvent.Command(command, heard.text))
+                    prompt = text
+                    continue
+                }
             }
             repository.saveAnswer(book, question, heard.text, heard.durationSec)
+            stats?.let {
+                it.sentences += ListenSession.splitSentences(heard.text).size
+                it.newAnswers++
+            }
             Log.i(TAG, "저장: ${question.id} ${heard.text}")
 
             // 방금 이야기를 받아 되묻는 후속 질문(다음 질문으로 이어진다).
@@ -174,11 +244,19 @@ class InterviewSession(
             state.update { it.copy(level = level) }
         }
         if (heard !is Heard.Text) return true
-        if (VoiceCommand.parse(heard.text) == VoiceCommand.STOP) {
-            finishChapter(startNext = false)
-            return false
+        when (val command = VoiceCommand.parseCommand(heard.text)) {
+            null -> Unit
+            VoiceCommand.STOP -> {
+                finishChapter(startNext = false)
+                return false
+            }
+            else -> {
+                eventFlow.tryEmit(InterviewEvent.Command(command, heard.text))
+                return true
+            }
         }
         repository.saveExtra(book, chapter, heard.text, heard.durationSec)
+        stats?.let { it.sentences += ListenSession.splitSentences(heard.text).size }
         Log.i(TAG, "덧붙임 저장: $chapter ${heard.text}")
         return true
     }

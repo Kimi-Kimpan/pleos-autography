@@ -151,6 +151,9 @@ interface AnswerDao {
     suspend fun count(): Int
 
     @Query("SELECT * FROM answer")
+    suspend fun all(): List<AnswerEntity>
+
+    @Query("SELECT * FROM answer")
     fun observeAll(): Flow<List<AnswerEntity>>
 
     @Query("UPDATE answer SET transcript = :transcript, editedAt = :editedAt WHERE id = :id")

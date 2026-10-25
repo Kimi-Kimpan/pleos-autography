@@ -21,6 +21,7 @@ import com.pleosautography.app.domain.DriveModeRule
 import com.pleosautography.app.domain.demo.DemoEvents
 import com.pleosautography.app.domain.interview.InterviewSession
 import com.pleosautography.app.domain.interview.ScriptedFollowUps
+import com.pleosautography.app.domain.interview.VoiceCommand
 import com.pleosautography.app.domain.listen.ListenSession
 import com.pleosautography.app.domain.trigger.SituationController
 import kotlinx.coroutines.CoroutineScope
@@ -76,7 +77,12 @@ class AppGraph private constructor(context: Context) {
 
     init {
         carVehicle.start()
-        scope.launch { repository.syncQuestions() }
+        scope.launch {
+            repository.syncQuestions()
+            // 예전 빌드가 음성 명령(“들려줘”, “여기까지” 등)을 답변으로 저장한 것을 지운다.
+            val removed = repository.deleteAnswersWhere { VoiceCommand.parseCommand(it.transcript) != null }
+            if (removed > 0) android.util.Log.i("AppGraph", "명령 문장 답변 정리: ${removed}개")
+        }
     }
 
     /** 화면이 닫혀도 끝까지 해야 하는 저장 작업(책 지우기·이름 바꾸기 등). */

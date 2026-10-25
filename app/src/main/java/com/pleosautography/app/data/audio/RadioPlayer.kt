@@ -54,6 +54,11 @@ class RadioPlayer(scope: CoroutineScope, private val audio: RadioAudio) {
         mutable.update { it.copy(userPaused = !it.userPaused) }
     }
 
+    /** 나와 비슷한 이야기: 다음 편을 처음부터 재생한다(일시정지였으면 푼다). */
+    fun playSimilar() = mutable.update {
+        it.copy(index = (it.index + 1) % it.playlist.size, positionSec = 0, userPaused = false)
+    }
+
     fun next() = mutable.update { it.copy(index = (it.index + 1) % it.playlist.size, positionSec = 0) }
 
     fun rewind15() = mutable.update { it.copy(positionSec = (it.positionSec - REWIND_SEC).coerceAtLeast(0)) }

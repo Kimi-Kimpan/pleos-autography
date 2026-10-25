@@ -263,6 +263,13 @@ class AutographyRepository(private val db: AppDatabase, private val assets: Asse
         db.answers().updateTranscript(id, transcript, System.currentTimeMillis())
     }
 
+    /** 조건에 맞는 답변을 지운다(예전 빌드가 음성 명령을 답변으로 저장한 것 정리). 지운 수를 돌려준다. */
+    suspend fun deleteAnswersWhere(predicate: (AnswerEntity) -> Boolean): Int = withContext(Dispatchers.IO) {
+        val targets = db.answers().all().filter(predicate)
+        targets.forEach { db.answers().delete(it.id) }
+        targets.size
+    }
+
     suspend fun deleteAnswer(id: Long) = withContext(Dispatchers.IO) { db.answers().delete(id) }
 
     /** 지운 문단을 되돌린다(같은 id로 다시 넣는다). */

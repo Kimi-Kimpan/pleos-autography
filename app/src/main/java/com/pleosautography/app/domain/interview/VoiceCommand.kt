@@ -21,7 +21,19 @@ enum class VoiceCommand {
     companion object {
         private val acceptWords = setOf("응", "어", "그래", "좋아", "네", "예")
 
-        /** 받아 적은 말에서 명령을 찾는다. 명령이 아니면 null(답변으로 저장한다). */
+        /** 명령으로 볼 말의 최대 길이(공백·문장부호 빼고). 이보다 긴 말 속의 낱말은 이야기로 본다. */
+        private const val MAX_COMMAND_LENGTH = 40
+
+        /**
+         * 받아 적은 말이 명령인지. 명령이면 답변(원고)으로 저장하지 않는다.
+         * 긴 이야기 속에 “여기까지” 같은 낱말이 섞인 경우는 명령이 아니다.
+         */
+        fun parseCommand(text: String): VoiceCommand? {
+            val compact = text.replace(Regex("[\\s,.!?·“”\"']"), "")
+            return parse(text)?.takeIf { compact.length <= MAX_COMMAND_LENGTH }
+        }
+
+        /** 받아 적은 말에서 명령어를 찾는다(길이는 보지 않는다). */
         fun parse(text: String): VoiceCommand? {
             val t = text.replace(Regex("[\\s,.!?·“”\"']"), "")
             return when {

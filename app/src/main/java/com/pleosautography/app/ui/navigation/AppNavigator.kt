@@ -35,6 +35,7 @@ enum class Screen(
     Pause("08 도착 전 마무리", driving = true, drivingOnly = true),
     ListenDrive("09 원고 듣기·고치기", driving = true),
     Complete("10 챕터 완성"),
+    Summary("10-3 인터뷰 요약", driving = true),
     Onboarding("11-1 첫 실행 · 부르는 이름"),
     Onboarding2("11-2 자서전 제목"),
     Onboarding3("11-3 첫 챕터"),
@@ -80,6 +81,14 @@ class AppNavigator(initial: List<Screen>) {
             mode == DriveMode.DRIVING && !current.driving -> reset(Screen.Driving)
             mode == DriveMode.PARKED && current.drivingOnly -> reset(Screen.Main)
         }
+    }
+
+    /** 인터뷰를 끝내고 요약 화면으로: 정차 중 시작했으면 Main 위, 주행 중이면 주행 홈 위에 요약 하나만. */
+    fun showSummary() {
+        val home = if (backStack.contains(Screen.Main)) Screen.Main else Screen.Driving
+        backStack.clear()
+        backStack.add(home)
+        backStack.add(Screen.Summary)
     }
 
     fun back() {

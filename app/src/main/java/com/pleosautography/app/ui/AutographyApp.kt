@@ -64,6 +64,7 @@ import com.pleosautography.app.ui.screens.drive.LocalDriveSituation
 import com.pleosautography.app.ui.screens.drive.MyBookSidePane
 import com.pleosautography.app.ui.screens.drive.NudgeScreen
 import com.pleosautography.app.ui.screens.drive.PauseScreen
+import com.pleosautography.app.ui.screens.drive.SummaryScreen
 import com.pleosautography.app.ui.screens.drive.RadioSidePane
 import com.pleosautography.app.ui.screens.main.ChapterAction
 import com.pleosautography.app.ui.screens.main.CompleteScreen
@@ -163,20 +164,22 @@ fun AutographyApp(
     val book = services?.book?.collectAsState(initial = BookState())?.value ?: BookState()
     val latestBook by rememberUpdatedState(book)
     val latestDriveMode by rememberUpdatedState(driveMode)
-    // “오토야, 잠깐만”: 저장은 이미 되어 있으니 주행 홈(정차 중 시작했다면 Main)으로 간다.
-    val stopInterview = { navigator.navigate(if (navigator.backStack.contains(Screen.Main)) Screen.Main else Screen.Driving) }
+    // “여기까지”·“오토야, 잠깐만”: 저장은 이미 되어 있다. 오토가 정리하는 화면 → 요약 화면으로 간다.
+    // 요약은 인터뷰 위에 쌓지 않고 바꿔 끼운다(뒤로 가기로 인터뷰가 다시 시작되지 않게).
+    val stopInterview = { navigator.showSummary() }
     LaunchedEffect(services) {
         services?.interview?.events?.collect { event ->
             when (event) {
                 InterviewEvent.StopRequested -> stopInterview()
+                // 인터뷰 중 “들려줘”: 원고 듣기로 넘어간다. 그 밖의 명령은 무시하고 계속 듣는다.
+                is InterviewEvent.Command -> if (event.command == VoiceCommand.LISTEN) navigator.navigate(Screen.ListenDrive)
                 is InterviewEvent.ChapterFinished -> when {
                     // 다음 챕터를 이어서 시작했으면 인터뷰 화면 그대로.
                     event.next != null -> Unit
                     // 12개 챕터를 모두 채웠으면 자서전 완성 화면.
                     (latestBook.done + event.chapter).size >= TOTAL_CHAPTERS -> navigator.navigate(Screen.Complete)
-                    // 주행 중이면 주행 홈으로, 정차 중이면 같은 화면(ChapterDone)에 남아 원고를 볼 수 있다.
-                    latestDriveMode == DriveMode.DRIVING -> navigator.navigate(Screen.Driving)
-                    else -> Unit
+                    // 챕터를 마무리했으면(‘여기까지’·챕터 마무리) 요약 화면.
+                    else -> stopInterview()
                 }
             }
         }
@@ -184,7 +187,7 @@ fun AutographyApp(
     // 인터뷰 밖에서 들린 말을 명령으로 처리한다.
     LaunchedEffect(services) {
         services?.speechInput?.utterances?.collect { text ->
-            when (VoiceCommand.parse(text)) {
+            when (VoiceCommand.parseCommand(text)) {
                 VoiceCommand.ACCEPT -> if (navigator.current == Screen.Nudge) navigator.reset(Screen.Interview)
                 VoiceCommand.STOP -> when (navigator.current) {
                     Screen.Interview -> stopInterview()
@@ -195,10 +198,16 @@ fun AutographyApp(
                 VoiceCommand.LISTEN -> if (navigator.current == Screen.Driving || navigator.current == Screen.Main) {
                     if (navigator.current == Screen.Main) navigator.openFromMain(Screen.ListenDrive) else navigator.navigate(Screen.ListenDrive)
                 }
-                VoiceCommand.WHATS_UP -> if (navigator.current.drivingOnly || navigator.current == Screen.Main) {
+                VoiceCommand.WHATS_UP -> if (navigator.current.drivingOnly || navigator.current == Screen.Main || navigator.current == Screen.Summary) {
                     val title = InterviewSession.titleOf(latestBook.current)
                     pendingIntro = "‘$title’ 부분을 다듬고 있었어요. 여기에 대해 조금 더 이야기해 주시겠어요?"
-                    if (navigator.current == Screen.Main) navigator.openFromMain(Screen.Interview) else navigator.navigate(Screen.Interview)
+                    when {
+                        navigator.current == Screen.Main -> navigator.openFromMain(Screen.Interview)
+                        // 요약 화면에서는 요약을 인터뷰로 바꿔 끼운다.
+                        navigator.current == Screen.Summary && navigator.backStack.contains(Screen.Main) -> navigator.openFromMain(Screen.Interview)
+                        navigator.current == Screen.Summary -> navigator.reset(Screen.Interview)
+                        else -> navigator.navigate(Screen.Interview)
+                    }
                 }
                 else -> Unit
             }
@@ -341,6 +350,7 @@ private fun ScreenContent(
     val services = LocalAppServices.current
     val interviewUi = LocalInterviewUi.current
     val bookId = LocalBookState.current.id
+    val driveModeNow = LocalDriveMode.current
     val startChapter = LocalStartChapter.current
     val scriptChapter = LocalScriptChapter.current
     when (screen) {
@@ -381,7 +391,7 @@ private fun ScreenContent(
                 if (interviewUi.chapterFull) {
                     services?.interview?.finishChapter(startNext = false)
                 } else {
-                    navigator.navigate(if (navigator.backStack.contains(Screen.Main)) Screen.Main else Screen.Driving)
+                    navigator.showSummary()
                 }
             },
             fullActions = ChapterFullActions(
@@ -457,6 +467,19 @@ private fun ScreenContent(
         }
         Screen.Complete -> CompleteScreen(
             onHome = { navigator.navigate(Screen.Main) },
+            modifier = modifier,
+        )
+        Screen.Summary -> SummaryScreen(
+            onHome = { navigator.navigate(if (driveModeNow == DriveMode.DRIVING) Screen.Driving else Screen.Main) },
+            onSimilar = {
+                if (driveModeNow == DriveMode.DRIVING) {
+                    // 주행 중에는 라디오로 비슷한 이야기를 바로 틀고 주행 홈으로.
+                    services?.radioPlayer?.playSimilar()
+                    navigator.navigate(Screen.Driving)
+                } else {
+                    navigator.openFromMain(Screen.Player)
+                }
+            },
             modifier = modifier,
         )
         Screen.Nudge -> NudgeScreen(
