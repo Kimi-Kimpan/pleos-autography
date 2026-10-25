@@ -36,6 +36,7 @@ class DemoScript(
     /** 챕터를 다 채운 뒤 더 이어 말한 것(질문 id가 “NN-extra”)이면 [extra]를 받아 적는다. */
     fun answerFor(questionId: String?): String = when {
         questionId == null -> fallback
+        questionId == FIX_ID -> fix
         questionId.endsWith(EXTRA_SUFFIX) -> extra
         else -> answers[questionId] ?: fallback
     }
@@ -43,6 +44,9 @@ class DemoScript(
     fun followUpFor(questionId: String): String? = followUps[questionId]
 
     companion object {
+        /** 원고 보기의 ‘말로 고치기’에서 들을 때 쓰는 id(시연은 준비된 정정 문장을 받아 적는다). */
+        const val FIX_ID = "fix"
+
         /** 챕터를 다 채운 뒤 덧붙인 이야기의 질문 id 끝. */
         const val EXTRA_SUFFIX = "-extra"
 

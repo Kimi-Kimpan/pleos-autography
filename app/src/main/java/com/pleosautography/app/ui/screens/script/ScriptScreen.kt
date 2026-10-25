@@ -2,15 +2,17 @@ package com.pleosautography.app.ui.screens.script
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -20,8 +22,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -36,31 +42,44 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import com.pleosautography.app.data.demo.DemoData
 import com.pleosautography.app.data.demo.ManuscriptParagraph
+import com.pleosautography.app.data.repo.AutographyRepository
+import com.pleosautography.app.data.speech.CaptionSpeechOutput
+import com.pleosautography.app.data.speech.DemoScript
+import com.pleosautography.app.data.speech.Heard
+import com.pleosautography.app.domain.interview.VoiceCommand
+import com.pleosautography.app.domain.listen.FixParser
+import com.pleosautography.app.domain.listen.ListenSession
 import com.pleosautography.app.ui.LocalAppServices
 import com.pleosautography.app.ui.components.HLine
+import com.pleosautography.app.ui.components.NoticeHost
 import com.pleosautography.app.ui.components.PillButton
 import com.pleosautography.app.ui.components.RuledText
 import com.pleosautography.app.ui.components.ScreenStatusChip
-import com.pleosautography.app.ui.icons.AutoIcons
-import com.pleosautography.app.ui.screens.LocalInterviewUi
-import com.pleosautography.app.ui.screens.currentChapter
-import com.pleosautography.app.ui.screens.chapterSummary
-import com.pleosautography.app.domain.listen.FixParser
-import com.pleosautography.app.domain.listen.ListenSession
-import com.pleosautography.app.ui.components.NoticeHost
+import com.pleosautography.app.ui.components.VoiceWave
 import com.pleosautography.app.ui.components.rememberNoticeState
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableIntStateOf
+import com.pleosautography.app.ui.icons.AutoIcons
+import com.pleosautography.app.ui.screens.LocalBookState
+import com.pleosautography.app.ui.screens.LocalInterviewUi
+import com.pleosautography.app.ui.screens.chapterSummary
+import com.pleosautography.app.ui.screens.currentChapter
 import com.pleosautography.app.ui.theme.AutoColors
 import com.pleosautography.app.ui.theme.GowunBatang
 import com.pleosautography.app.ui.theme.TextSpec
 import com.pleosautography.app.ui.theme.px
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 private val Title = TextSpec(52f, FontWeight.ExtraBold, lineHeightPx = 57.2f)
 private val Hint = TextSpec(24f, FontWeight.SemiBold)
@@ -68,23 +87,47 @@ private val Body = TextSpec(34f, FontWeight.Normal, GowunBatang, lineHeightPx = 
 private val ContinueAsk = TextSpec(36f, FontWeight.Bold, GowunBatang, lineHeightPx = 46.8f, letterSpacingEm = -0.01f)
 private val Floating = TextSpec(27f, FontWeight.ExtraBold)
 private val Caption = TextSpec(20f, FontWeight.SemiBold)
+private val WriteHint = TextSpec(26f, FontWeight.SemiBold)
+private val FixInput = TextSpec(30f, FontWeight.Bold, lineHeightPx = 42f)
 
+/** 원고 보기에서 지금 하는 일. */
+private enum class ScriptMode {
+    VIEW,
+
+    /** 이어쓰기: 원고 끝 입력 줄에 말한 문장이 적힌다. */
+    WRITING,
+
+    /** 챕터 듣기: 원고를 옅게 두고 오토가 읽는 어절을 따라 칠한다. */
+    PLAYING,
+}
+
+/** 챕터 듣기에서 읽는 자리(문단·문장·어절). */
+private data class ReadingSpot(val paragraph: Int, val sentence: Int, val word: Int)
+
+/** 말로 고치기 미리보기: 이 문단의 [wrong]을 [fixed]로 바꾼다. */
+private data class FixPreview(val wrong: String, val fixed: String)
+
+/** 이 색(약 40%)으로 원고 전체를 옅게 둔다(챕터 듣기). */
+private val Dimmed = AutoColors.Ink.copy(alpha = 0.4f)
+
+/** 받아 적은 문장을 타이핑하듯 보이는 속도(글자당). */
+private const val TYPING_MS = 45L
 
 /**
  * 05 원고 보기(정차 중). 시안: design/screens/Script.png
- * 노트 줄 위 원고. 문단을 길게 누르면 그 부분을 고르고, 위에 말로 고치기·다시 듣기·지우기 알약 버튼을 띄운다.
- * 저장한 답변이 있으면 그 답변을, 없으면 예시 원고를 보인다.
- * - 지우기: 답변을 지우고 4초 동안 되돌리기를 보인다.
- * - 다시 듣기: 그 문단을 오토 목소리로 읽는다(시연은 읽는 시간만큼 문장을 차례로 칠한다).
- * - 말로 고치기: 시연용 준비된 정정 문장(“1988년이 아니라 1987년”)을 그 문단에 적용한다. 실제 음성 정정은 원고 듣기에서 한다.
+ * 노트 줄 위 원고. 저장한 답변이 있으면 그 답변을, 없으면 예시 원고를 보인다. 모든 일을 이 화면 안에서 한다.
+ * - 문단을 길게 누르면 말로 고치기·다시 듣기·지우기.
+ *   - 말로 고치기: 문단 아래 입력창에 말한 정정이 적히고, 원고에 취소선 → 새 말로 미리 보인 뒤 확인하면 저장한다.
+ *   - 지우기: 답변을 지우고 4초 동안 되돌리기를 보인다.
+ * - 이어쓰기: 원고 끝에 깜빡이는 커서와 작은 파형. 말하면 그 자리에 문장이 적히고 저장된다. ‘여기까지’로 멈춘다.
+ * - 챕터 듣기: 원고를 옅게 두고 오토가 읽는 어절을 따라 진하게 칠하며 읽는 자리로 스크롤한다. 라디오는 멈춘다.
+ * 받아 적기는 음성 입력 어댑터를 쓴다(시연은 실제 마이크 음량 + 준비된 문장).
  * @param showHome 가로 전체 창에서는 왼쪽에 홈이 늘 있으므로 ‘홈’ 버튼을 뺀다.
  * @param chapterNumber 열 챕터(홈에서 완료한 챕터를 골랐을 때). null이면 인터뷰 중 챕터나 지금 쓰는 챕터.
  */
 @Composable
 fun ScriptScreen(
     onHome: () -> Unit,
-    onContinueWriting: () -> Unit,
-    onListenFromStart: () -> Unit,
     modifier: Modifier = Modifier,
     showHome: Boolean = true,
     chapterNumber: Int? = null,
@@ -97,14 +140,18 @@ fun ScriptScreen(
         else -> currentChapter()
     }
     val services = LocalAppServices.current
+    val bookId = LocalBookState.current.id
     val answers = remember(services, chapter.number) { services?.answersFor?.invoke(chapter.number) }
         ?.collectAsState(initial = null)?.value
+    var mode by rememberSaveable { mutableStateOf(ScriptMode.VIEW) }
+    // 이어쓰기에서 막 저장해 아직 타이핑 중인 답변은 목록에서 잠시 숨긴다(입력 줄에 보이는 중).
+    var typingAnswerId by remember { mutableStateOf<Long?>(null) }
     val example = answers?.isEmpty() == true
     val demoFix = remember(services) { services?.demoFixSentence?.let(FixParser::parse) }
     val paragraphs = when {
         answers == null -> emptyList()
         example -> DemoData.manuscript
-        else -> answers.map { answer ->
+        else -> answers.filter { it.id != typingAnswerId }.map { answer ->
             // 시연용 정정 대상(“1988년”)이 든 문단은 길게 누를 때 그 구절을 칠한다(시안).
             val highlight = demoFix?.takeIf { it.wrong in answer.transcript }?.let { ListenSession.phraseAround(answer.transcript, it.wrong) }
             ManuscriptParagraph(answer.transcript, highlight, answer.id)
@@ -113,8 +160,18 @@ fun ScriptScreen(
     var selected by rememberSaveable { mutableStateOf<Int?>(null) }
     var reading by remember { mutableStateOf<Int?>(null) }
     var readingSentence by remember { mutableIntStateOf(0) }
+    var spot by remember { mutableStateOf<ReadingSpot?>(null) }
+    var fixing by remember { mutableStateOf<Int?>(null) }
+    var fixHeard by remember { mutableStateOf("") }
+    var fixPreview by remember { mutableStateOf<FixPreview?>(null) }
+    var fixProblem by remember { mutableStateOf<String?>(null) }
+    var typed by remember { mutableStateOf("") }
+    var level by remember { mutableFloatStateOf(0f) }
     val notice = rememberNoticeState()
-    // 다시 듣기: 문장마다 읽는 시간만큼 칠한다.
+    val scroll = rememberScrollState()
+    val paragraphTops = remember { mutableStateMapOf<Int, Int>() }
+
+    // 다시 듣기(한 문단): 문장마다 읽는 시간만큼 칠한다.
     LaunchedEffect(reading) {
         val text = reading?.let { paragraphs.getOrNull(it)?.text } ?: return@LaunchedEffect
         ListenSession.splitSentences(text).forEachIndexed { i, sentence ->
@@ -122,6 +179,113 @@ fun ScriptScreen(
             services?.readAloud?.invoke(sentence)
         }
         reading = null
+    }
+
+    // 챕터 듣기: 원고 전체를 어절 단위로 따라 읽는다. 라디오는 낭독 중 멈춘다.
+    LaunchedEffect(mode == ScriptMode.PLAYING) {
+        if (mode != ScriptMode.PLAYING) return@LaunchedEffect
+        services?.setTalking?.invoke(true)
+        try {
+            paragraphs.forEachIndexed { p, paragraph ->
+                ListenSession.splitSentences(paragraph.text).forEachIndexed { s, sentence ->
+                    coroutineScope {
+                        // 소리(TTS)는 문장 단위로 내고, 화면은 어절마다 읽는 시간만큼 넘어간다.
+                        launch { services?.readAloud?.invoke(sentence) }
+                        sentence.split(' ').forEachIndexed { w, word ->
+                            spot = ReadingSpot(p, s, w)
+                            delay(CaptionSpeechOutput.estimateMs(word) - 300L)
+                        }
+                    }
+                }
+            }
+        } finally {
+            services?.setTalking?.invoke(false)
+            spot = null
+            mode = ScriptMode.VIEW
+        }
+    }
+    // 읽는 문단으로 스크롤한다.
+    LaunchedEffect(spot?.paragraph) {
+        val p = spot?.paragraph ?: return@LaunchedEffect
+        paragraphTops[p]?.let { scroll.animateScrollTo((it - 120).coerceAtLeast(0)) }
+    }
+
+    // 이어쓰기: 말하면 받아 적어 원고 끝에 타이핑하듯 보이고 저장한다. “여기까지”나 버튼으로 멈춘다.
+    LaunchedEffect(mode == ScriptMode.WRITING) {
+        if (mode != ScriptMode.WRITING || services == null || bookId == null) return@LaunchedEffect
+        services.setTalking(true)
+        scroll.animateScrollTo(scroll.maxValue)
+        try {
+            while (true) {
+                val question = services.repository.observeProgress(bookId, chapter.number).first().nextQuestion
+                val heard = services.speechInput.listen(question?.id ?: AutographyRepository.extraQuestionId(chapter.number)) { level = it }
+                level = 0f
+                if (heard !is Heard.Text) continue
+                when (VoiceCommand.parseCommand(heard.text)) {
+                    null -> Unit
+                    VoiceCommand.STOP -> break
+                    else -> continue // 다른 명령은 원고에 넣지 않는다.
+                }
+                // 먼저 저장하고(데이터 유실 없음) 입력 줄에서 타이핑하듯 보인다.
+                typingAnswerId = if (question != null) {
+                    services.repository.saveAnswer(bookId, question, heard.text, heard.durationSec)
+                } else {
+                    services.repository.saveExtra(bookId, chapter.number, heard.text, heard.durationSec)
+                }
+                for (i in 1..heard.text.length) {
+                    typed = heard.text.take(i)
+                    delay(TYPING_MS)
+                    if (i % 12 == 0) scroll.scrollTo(scroll.maxValue)
+                }
+                delay(400)
+                typed = ""
+                typingAnswerId = null
+                scroll.animateScrollTo(scroll.maxValue)
+            }
+        } finally {
+            typed = ""
+            typingAnswerId = null
+            level = 0f
+            services.setTalking(false)
+            mode = ScriptMode.VIEW
+        }
+    }
+
+    // 말로 고치기: 고른 문단 아래 입력창에 말한 정정이 적히고, 원고에 미리 보인다.
+    LaunchedEffect(fixing) {
+        val index = fixing ?: return@LaunchedEffect
+        val paragraph = paragraphs.getOrNull(index) ?: return@LaunchedEffect
+        services ?: return@LaunchedEffect
+        services.setTalking(true)
+        try {
+            while (fixPreview == null) {
+                val heard = services.speechInput.listen(DemoScript.FIX_ID) { level = it }
+                level = 0f
+                if (heard !is Heard.Text) continue
+                for (i in 1..heard.text.length) {
+                    fixHeard = heard.text.take(i)
+                    delay(TYPING_MS)
+                }
+                val parsed = FixParser.parse(heard.text)
+                when {
+                    parsed == null -> fixProblem = "어느 부분을 무엇으로 고칠지 다시 말씀해 주세요. 예) “A가 아니라 B였어”"
+                    parsed.wrong !in paragraph.text -> fixProblem = "‘${parsed.wrong}’을 이 문단에서 찾지 못했어요. 다시 말씀해 주세요."
+                    else -> {
+                        fixProblem = null
+                        fixPreview = FixPreview(parsed.wrong, parsed.fixed)
+                    }
+                }
+            }
+        } finally {
+            level = 0f
+            services.setTalking(false)
+        }
+    }
+    val closeFix = {
+        fixing = null
+        fixHeard = ""
+        fixPreview = null
+        fixProblem = null
     }
 
     Box(modifier.fillMaxSize()) {
@@ -154,7 +318,7 @@ fun ScriptScreen(
             Column(
                 Modifier
                     .weight(1f)
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(scroll)
                     .padding(start = 32.px, top = 8.px, end = 32.px),
             ) {
                 Row(
@@ -163,46 +327,78 @@ fun ScriptScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.px),
                 ) {
                     Image(rememberVectorPainter(AutoIcons.Select), null, Modifier.size(26.px), colorFilter = ColorFilter.tint(AutoColors.InkSecondary))
-                    BasicText("고칠 부분을 길게 눌러 고르면, 말로 고칠 수 있어요", style = Hint.style(AutoColors.InkSecondary))
+                    BasicText(
+                        when (mode) {
+                            ScriptMode.PLAYING -> "오토가 읽고 있어요 · 읽는 자리를 따라가요"
+                            ScriptMode.WRITING -> "말씀하시는 대로 원고 끝에 이어서 적어요"
+                            ScriptMode.VIEW -> "고칠 부분을 길게 눌러 고르면, 말로 고칠 수 있어요"
+                        },
+                        style = Hint.style(AutoColors.InkSecondary),
+                    )
                 }
                 paragraphs.forEachIndexed { index, paragraph ->
-                    Paragraph(
-                        paragraph = paragraph,
-                        first = index == 0,
-                        selected = selected == index,
-                        readingSentence = if (reading == index) readingSentence else null,
-                        onLongPress = { selected = if (selected == index) null else index },
-                        actions = ParagraphActions(
-                            reading = reading == index,
-                            onFix = {
-                                val fix = demoFix
-                                val id = paragraph.answerId
-                                if (fix != null && id != null && fix.wrong in paragraph.text) {
-                                    val fixed = paragraph.text.replaceFirst(fix.wrong, fix.fixed)
-                                    services?.launch { services.repository.updateTranscript(id, fixed) }
-                                    val phrase = ListenSession.phraseAround(fixed, fix.fixed)
-                                    notice.show("‘$phrase’${ListenSession.directionParticle(phrase)} 고쳤어요")
-                                } else {
-                                    notice.show("이 문단은 주행 중 “들려줘”로 들으며 말로 고칠 수 있어요")
-                                }
-                                selected = null
+                    val fixHere = fixing == index
+                    Column(Modifier.onGloballyPositioned { paragraphTops[index] = it.positionInParent().y.toInt() }) {
+                        Paragraph(
+                            paragraph = paragraph,
+                            first = index == 0,
+                            selected = selected == index && !fixHere && mode == ScriptMode.VIEW,
+                            readingSentence = if (reading == index) readingSentence else null,
+                            karaoke = spot,
+                            karaokeOn = mode == ScriptMode.PLAYING,
+                            index = index,
+                            preview = if (fixHere) fixPreview else null,
+                            onLongPress = {
+                                if (mode == ScriptMode.VIEW && fixing == null) selected = if (selected == index) null else index
                             },
-                            onListen = { reading = if (reading == index) null else index },
-                            onDelete = {
-                                val answer = answers?.firstOrNull { it.id == paragraph.answerId }
-                                if (answer != null) {
-                                    services?.launch { services.repository.deleteAnswer(answer.id) }
-                                    notice.show("문단을 지웠어요", actionLabel = "되돌리기") {
-                                        services?.launch { services.repository.restoreAnswer(answer) }
+                            actions = ParagraphActions(
+                                reading = reading == index,
+                                onFix = {
+                                    if (paragraph.answerId == null) {
+                                        notice.show("예시 원고는 고칠 수 없어요")
+                                    } else {
+                                        reading = null
+                                        fixing = index
                                     }
-                                } else {
-                                    notice.show("예시 원고는 지울 수 없어요")
-                                }
-                                selected = null
-                                reading = null
-                            },
-                        ),
-                    )
+                                    selected = null
+                                },
+                                onListen = { reading = if (reading == index) null else index },
+                                onDelete = {
+                                    val answer = answers?.firstOrNull { it.id == paragraph.answerId }
+                                    if (answer != null) {
+                                        services?.launch { services.repository.deleteAnswer(answer.id) }
+                                        notice.show("문단을 지웠어요", actionLabel = "되돌리기") {
+                                            services?.launch { services.repository.restoreAnswer(answer) }
+                                        }
+                                    } else {
+                                        notice.show("예시 원고는 지울 수 없어요")
+                                    }
+                                    selected = null
+                                    reading = null
+                                },
+                            ),
+                        )
+                        if (fixHere) {
+                            FixBox(
+                                heard = fixHeard,
+                                level = level,
+                                problem = fixProblem,
+                                ready = fixPreview != null,
+                                onCancel = closeFix,
+                                onConfirm = {
+                                    val preview = fixPreview
+                                    val id = paragraph.answerId
+                                    if (preview != null && id != null) {
+                                        val fixed = paragraph.text.replaceFirst(preview.wrong, preview.fixed)
+                                        services?.launch { services.repository.updateTranscript(id, fixed) }
+                                        val phrase = ListenSession.phraseAround(fixed, preview.fixed)
+                                        notice.show("‘$phrase’${ListenSession.directionParticle(phrase)} 고쳤어요")
+                                    }
+                                    closeFix()
+                                },
+                            )
+                        }
+                    }
                 }
                 Column(
                     modifier = Modifier
@@ -211,10 +407,40 @@ fun ScriptScreen(
                         .padding(vertical = 28.px),
                     verticalArrangement = Arrangement.spacedBy(20.px),
                 ) {
-                    BasicText("여기서부터 이어서 써 볼까요?", style = ContinueAsk.style())
-                    Row(horizontalArrangement = Arrangement.spacedBy(16.px)) {
-                        PillButton("이어쓰기", onContinueWriting, icon = AutoIcons.Pencil, filled = true)
-                        PillButton("처음부터 듣기", onListenFromStart, icon = AutoIcons.Play, iconSizePx = 26f)
+                    if (mode == ScriptMode.WRITING) {
+                        WritingLine(typed = typed, level = level, onStop = { mode = ScriptMode.VIEW })
+                    } else {
+                        BasicText("여기서부터 이어서 써 볼까요?", style = ContinueAsk.style())
+                        Row(horizontalArrangement = Arrangement.spacedBy(16.px)) {
+                            PillButton(
+                                "이어쓰기",
+                                {
+                                    closeFix()
+                                    selected = null
+                                    reading = null
+                                    mode = ScriptMode.WRITING
+                                },
+                                icon = AutoIcons.Pencil,
+                                filled = true,
+                                enabled = mode == ScriptMode.VIEW && bookId != null,
+                            )
+                            PillButton(
+                                if (mode == ScriptMode.PLAYING) "멈추기" else "챕터 듣기",
+                                {
+                                    if (mode == ScriptMode.PLAYING) {
+                                        mode = ScriptMode.VIEW
+                                    } else {
+                                        closeFix()
+                                        selected = null
+                                        reading = null
+                                        mode = ScriptMode.PLAYING
+                                    }
+                                },
+                                icon = if (mode == ScriptMode.PLAYING) AutoIcons.Pause else AutoIcons.Play,
+                                iconSizePx = 26f,
+                                enabled = paragraphs.isNotEmpty(),
+                            )
+                        }
                     }
                 }
                 if (example) {
@@ -233,24 +459,42 @@ private class ParagraphActions(val reading: Boolean, val onFix: () -> Unit, val 
 /**
  * 원고 한 문단. 고르면 강조 구절(없으면 문단 전체)을 파랗게 칠하고 위에 알약 버튼을 띄운다.
  * @param readingSentence 다시 듣기 중이면 지금 읽는 문장 번호(연보라로 칠한다).
+ * @param karaokeOn 챕터 듣기 중: 전체를 옅게 두고 [karaoke] 자리의 문장을 읽은 어절까지 진하게.
+ * @param preview 말로 고치기 미리보기(취소선 → 새 말).
  */
 @Composable
-private fun Paragraph(paragraph: ManuscriptParagraph, first: Boolean, selected: Boolean, readingSentence: Int?, onLongPress: () -> Unit, actions: ParagraphActions) {
-    val text = buildAnnotatedString {
-        val target = if (selected) paragraph.highlight ?: paragraph.text else null
-        val start = target?.let { paragraph.text.indexOf(it) } ?: -1
-        val sentences = ListenSession.splitSentences(paragraph.text)
-        if (readingSentence != null && readingSentence in sentences.indices) {
+private fun Paragraph(
+    paragraph: ManuscriptParagraph,
+    first: Boolean,
+    selected: Boolean,
+    readingSentence: Int?,
+    karaoke: ReadingSpot?,
+    karaokeOn: Boolean,
+    index: Int,
+    preview: FixPreview?,
+    onLongPress: () -> Unit,
+    actions: ParagraphActions,
+) {
+    val sentences = ListenSession.splitSentences(paragraph.text)
+    val text = when {
+        karaokeOn -> karaokeText(sentences, karaoke?.takeIf { it.paragraph == index })
+        preview != null -> previewText(paragraph.text, preview)
+        readingSentence != null && readingSentence in sentences.indices -> buildAnnotatedString {
             sentences.forEachIndexed { i, sentence ->
                 if (i > 0) append(" ")
                 if (i == readingSentence) withStyle(SpanStyle(background = AutoColors.LavenderSoft)) { append(sentence) } else append(sentence)
             }
-        } else if (target == null || start < 0) {
-            append(paragraph.text)
-        } else {
-            append(paragraph.text.substring(0, start))
-            withStyle(SpanStyle(background = AutoColors.Ink, color = AutoColors.OnInk)) { append(target) }
-            append(paragraph.text.substring(start + target.length))
+        }
+        else -> buildAnnotatedString {
+            val target = if (selected) paragraph.highlight ?: paragraph.text else null
+            val start = target?.let { paragraph.text.indexOf(it) } ?: -1
+            if (target == null || start < 0) {
+                append(paragraph.text)
+            } else {
+                append(paragraph.text.substring(0, start))
+                withStyle(SpanStyle(background = AutoColors.Ink, color = AutoColors.OnInk)) { append(target) }
+                append(paragraph.text.substring(start + target.length))
+            }
         }
     }
     Box(Modifier.pointerInput(Unit) { detectTapGestures(onLongPress = { onLongPress() }) }) {
@@ -270,6 +514,120 @@ private fun Paragraph(paragraph: ManuscriptParagraph, first: Boolean, selected: 
             }
         }
     }
+}
+
+/** 노래방 자막처럼: 전체는 옅게, 읽는 문장은 읽은 어절까지 진하게. */
+private fun karaokeText(sentences: List<String>, spot: ReadingSpot?): AnnotatedString = buildAnnotatedString {
+    sentences.forEachIndexed { s, sentence ->
+        if (s > 0) append(" ")
+        if (spot == null || spot.sentence != s) {
+            withStyle(SpanStyle(color = Dimmed)) { append(sentence) }
+        } else {
+            sentence.split(' ').forEachIndexed { w, word ->
+                if (w > 0) append(" ")
+                withStyle(SpanStyle(color = if (w <= spot.word) AutoColors.Ink else Dimmed)) { append(word) }
+            }
+        }
+    }
+}
+
+/** 고칠 말은 취소선(옅게), 바로 뒤에 새 말을 파랗게 칠한다. */
+private fun previewText(text: String, preview: FixPreview): AnnotatedString = buildAnnotatedString {
+    val at = text.indexOf(preview.wrong)
+    if (at < 0) {
+        append(text)
+        return@buildAnnotatedString
+    }
+    append(text.substring(0, at))
+    withStyle(SpanStyle(color = AutoColors.Ink.copy(alpha = 0.5f), textDecoration = TextDecoration.LineThrough)) { append(preview.wrong) }
+    append(" ")
+    withStyle(SpanStyle(background = AutoColors.Ink, color = AutoColors.OnInk)) { append(preview.fixed) }
+    append(text.substring(at + preview.wrong.length))
+}
+
+/** 깜빡이는 커서(0.5초). */
+@Composable
+private fun rememberBlink(): Boolean {
+    var on by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(530)
+            on = !on
+        }
+    }
+    return on
+}
+
+/** 이어쓰기 입력 줄: 적히는 문장 + 깜빡이는 커서, 아래에 작은 파형·안내·‘여기까지’. */
+@Composable
+private fun WritingLine(typed: String, level: Float, onStop: () -> Unit) {
+    val blink = rememberBlink()
+    RuledText(
+        buildAnnotatedString {
+            append(typed)
+            withStyle(SpanStyle(color = if (blink) AutoColors.Ink else Color.Transparent)) { append("│") }
+        },
+        Body,
+        Modifier.fillMaxWidth(),
+    )
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.px)) {
+        VoiceWave(levels = smallWave(level), barWidthPx = 7f, gapPx = 6f, heightPx = 56f)
+        BasicText(
+            if (typed.isEmpty()) "말씀하시면 여기에 이어서 적어요" else "받아 적고 있어요",
+            style = WriteHint.style(AutoColors.InkMuted),
+            modifier = Modifier.weight(1f),
+        )
+        PillButton("여기까지", onStop, icon = AutoIcons.Clip, filled = true, heightPx = 84f, iconSizePx = 30f, horizontalPaddingPx = 30f)
+    }
+}
+
+/** 말로 고치기 입력창: 둥근 테두리, 들은 말 또는 옅은 안내 + 커서, 오른쪽 마이크. 아래에 취소·확인. */
+@Composable
+private fun FixBox(heard: String, level: Float, problem: String?, ready: Boolean, onCancel: () -> Unit, onConfirm: () -> Unit) {
+    val blink = rememberBlink()
+    val shape = RoundedCornerShape(36.px)
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(top = 14.px, bottom = 22.px),
+        verticalArrangement = Arrangement.spacedBy(14.px),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 96.px)
+                .background(AutoColors.SurfacePill, shape)
+                .border(2.5.px, AutoColors.Ink, shape)
+                .padding(start = 30.px, top = 18.px, end = 22.px, bottom = 18.px),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.px),
+        ) {
+            BasicText(
+                buildAnnotatedString {
+                    if (heard.isEmpty()) {
+                        withStyle(SpanStyle(color = if (blink) AutoColors.Ink else Color.Transparent)) { append("│") }
+                        withStyle(SpanStyle(color = AutoColors.InkMuted)) { append(" 고칠 내용을 말씀해 주세요") }
+                    } else {
+                        append(heard)
+                        if (!ready) withStyle(SpanStyle(color = if (blink) AutoColors.Ink else Color.Transparent)) { append("│") }
+                    }
+                },
+                style = FixInput.style(),
+                modifier = Modifier.weight(1f),
+            )
+            if (!ready) VoiceWave(levels = smallWave(level), barWidthPx = 5f, gapPx = 4f, heightPx = 40f)
+            Image(rememberVectorPainter(AutoIcons.MicFilled), "말로 고치기", Modifier.size(34.px), colorFilter = ColorFilter.tint(AutoColors.Ink))
+        }
+        problem?.let { BasicText(it, style = Hint.style(AutoColors.InkSecondary)) }
+        Row(horizontalArrangement = Arrangement.spacedBy(14.px)) {
+            PillButton("취소", onCancel, heightPx = 76f, horizontalPaddingPx = 30f)
+            PillButton("확인", onConfirm, icon = AutoIcons.Check, filled = true, enabled = ready, heightPx = 76f, iconSizePx = 26f, horizontalPaddingPx = 30f)
+        }
+    }
+}
+
+/** 작은 파형: 조용할 때도 쉬는 모양, 목소리에 따라 커진다. */
+private fun smallWave(level: Float): List<Float> {
+    val scale = 0.35f + 0.65f * level
+    return listOf(0.3f, 0.6f, 0.9f, 0.55f, 1f, 0.7f, 0.4f).map { it * scale }
 }
 
 /** 원고 위에 떠 있는 알약 버튼(높이 76). */

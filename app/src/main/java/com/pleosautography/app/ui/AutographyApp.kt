@@ -411,12 +411,6 @@ private fun ScreenContent(
         Screen.Script -> ScriptScreen(
             chapterNumber = scriptChapter.chapter,
             onHome = { navigator.navigate(Screen.Main) },
-            onContinueWriting = {
-                if (navigator.backStack.contains(Screen.Main)) navigator.openFromMain(Screen.Interview) else navigator.navigate(Screen.Interview)
-            },
-            onListenFromStart = {
-                if (navigator.backStack.contains(Screen.Main)) navigator.openFromMain(Screen.Player) else navigator.navigate(Screen.Player)
-            },
             modifier = modifier,
             showHome = !fullWindow,
         )
