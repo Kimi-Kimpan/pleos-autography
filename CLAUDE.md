@@ -98,12 +98,13 @@
 
 ## 디자인 규칙 요약 (자세한 값은 design/tokens.md)
 
-- 배경 #EFEFEF, 잉크 블루 #1A0BD0. 파란 꽉 찬 버튼은 쓰기·말하기 행동에만 쓴다: 이어쓰기, 이어서 하기.
+- 배경 #EFEFEF, 잉크 블루 #1A0BD0. 파란 꽉 찬 버튼은 쓰기·말하기 행동에만 쓴다: 이어쓰기, 이어서 하기, 그리고 ‘여기까지’(지금 진행 중인 말하기를 끝내는 버튼).
 - UI 글꼴은 Asta Sans다. 오토의 말과 원고는 Gowun Batang(명조)으로 쓰고, 그 아래에 노트 줄을 깐다.
 - 세로 앱 화면(3:4) 왼쪽에는 72px **책등 띠**를 둔다.
   - 위에는 자서전 제목을 세로로 쓴다.
   - 아래에는 ‘Autography’ 로고와 설정 버튼을 둔다. 설정 버튼은 주행 중 비활성이다.
-- ‘여기까지’ 버튼: 클립 아이콘이 들어간 아웃라인 알약 버튼(저장의 의미)이다.
+- ‘여기까지’ 버튼: 클립 아이콘이 들어간 파란 알약 버튼(흰 글씨·흰 클립, 저장의 의미)이다. 주행 중에도 누를 곳이 바로 보이게 한다.
+  가로 전체 창에서 오른쪽에 인터뷰가 열리면 왼쪽 목록의 그 챕터 ‘이어쓰기’가 ‘여기까지’로 바뀌고, 오른쪽 칸에는 두지 않는다.
 - 주행 중 마이크: 큰 파란 원 + 은은한 후광이다(움직이는 효과 없음). 인터뷰 화면은 이미 듣는 중이라 마이크 대신 음성 파형을 보여 준다.
 - 정보는 1~2초 안에 읽혀야 한다(Pleos 디자인 가이드). 명도 대비는 4.5:1 이상이다. 주행 중에는 자동 애니메이션과 영상을 최소화한다.
 
@@ -167,7 +168,8 @@
 
 - 화면 바로 열기(시안 비교 스크린샷용):
   `adb shell am start -n com.pleosautography.app/.MainActivity --es screen Nudge --ez timers false`
-  - `screen`: `Screen` 이름(Main, Driving, Player, Interview, Script, Nudge, Pause, ListenDrive, Complete, Onboarding, Onboarding2, Onboarding3, Settings). 주행 중 화면이면 데모 주행 상태도 D단으로 넣는다.
+  - `screen`: `Screen` 이름(Main, Driving, Player, Interview, Script, Nudge, Pause, ListenDrive, Complete, Summary, Onboarding, Onboarding2, Onboarding3, Settings).
+    Summary는 `timers false`면 ‘정리 중’ 화면에 머문다(요약이 없으면 예시 요약 71%→86%). 주행 중 화면이면 데모 주행 상태도 D단으로 넣는다.
   - `timers false`: 링 타이머 멈춤, `drive drive|park|real`: 데모 주행 상태. Activity는 singleTop이라 이미 떠 있어도 extras가 전달된다.
 - 디버그 런처 아이콘: ‘SDK 확인’(`VehicleCheckActivity`, 기어·속도), ‘음성 확인’(`VoiceCheckActivity`, tts·mic·stt·tone).
 - **데모 이벤트**(디버그 빌드): 책등의 ‘Autography’를 길게 누르면 데모 패널이 열린다. 영상에서는 adb로 보낸다.
@@ -214,7 +216,13 @@
 - 인터뷰 흐름: 받아 적어 저장하고 후속 질문(`FollowUpGenerator`, 시연은 `ScriptedFollowUps`가 answers.json의 followUps를 쓴다. 2단계에서 AI 생성으로 바꿔 끼운다). 후속 질문은 다음 질문으로 이어지고 그 답은 다음 질문의 답으로 저장한다.
 - 챕터 완성: “여기까지”나 챕터 마무리로 `chapter_state`에 기록하고 다음 챕터로 넘어간다. 주행 중이면 주행 홈으로, 정차 중이면 같은 화면(ChapterDone).
 - 소리: 알림 멜로디·오토 발화 중에는 라디오를 줄이고(duck), 인터뷰·원고 듣기 중에는 멈춘다(transient). 미니 플레이어에 “소리 줄임”·“인터뷰 중 잠시 멈춤”.
-- 원고 보기: 저장한 답변(없으면 예시 원고). 지우기(4초 되돌리기), 다시 듣기(문장마다 칠함), 말로 고치기(준비된 정정 문장 적용). 완료한 챕터 줄을 누르면 그 챕터 원고.
+- 원고 보기: 저장한 답변(없으면 예시 원고). 완료한 챕터 줄을 누르면 그 챕터 원고. 모두 화면 안에서 한다.
+  - 길게 눌러 지우기(4초 되돌리기), 다시 듣기(문장마다 칠함), 말로 고치기(문단 아래 입력창 → 취소선 미리보기 → 확인. 시연은 `answers.json`의 fix).
+  - 이어쓰기: 원고 끝 커서·작은 파형, 말하면 먼저 저장하고 타이핑하듯 보인다. ‘여기까지’ 버튼·음성으로 멈춤.
+  - 챕터 듣기: 원고 전체 40%, 읽는 어절까지 100%(노래방 자막), 읽는 문단으로 자동 스크롤, 라디오 멈춤.
+- ‘여기까지’(인터뷰): 정리 중(약 2초, 노트 줄이 채워짐) → 요약 화면 `Summary`(새로 적힌 문장·대화 시간·진행률 변화·남은 질문, 홈으로·나와 비슷한 이야기 듣기).
+  주행 중에는 큰 글씨·버튼 2개만, 6초 뒤 주행 홈. 요약 값은 `InterviewSession.summary`.
+- 음성 명령으로 인식된 짧은 말(`VoiceCommand.parseCommand`, 40자 이하)은 답변으로 저장하지 않는다. 앱 시작 때 예전 빌드가 저장한 명령 문장을 지운다.
 - 원고 듣기: `domain/listen/ListenSession`이 지금 챕터(답변 없으면 최근 챕터)를 문장 단위로 읽고, “A가 아니라 B”(`FixParser`)를 읽던 자리 근처에서 찾아 고쳐 저장(editedAt). 마이크 버튼 = 준비된 정정 문장(`answers.json`의 fix).
 - 라디오: `data/audio/RadioPlayer`가 재생 위치를 1초씩 움직인다(소리 없음). 일시정지·다음·15초 뒤로, 인터뷰 중 멈춤.
 

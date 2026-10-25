@@ -189,7 +189,8 @@ class InterviewSession(
     private suspend fun run(book: Long, chapter: Int, intro: String?) {
         var prompt: String? = null
         repository.observeProgress(book, chapter).first().let { stats = SessionStats(chapter, System.currentTimeMillis(), it.answered, it.total) }
-        intro?.let { say(chapter, it, null) }
+        // 안내(“‘첫 차’ 부분을 다듬고 있었어요…”)도 화면에 오토의 말로 쓴다.
+        intro?.let { say(chapter, it, null, prompt = it) }
         while (true) {
             val progress = repository.observeProgress(book, chapter).first()
             val question = progress.nextQuestion

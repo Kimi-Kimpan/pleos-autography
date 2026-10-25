@@ -56,6 +56,7 @@ enum class ChapterAction { CONTINUE, LISTEN, SCRIPT }
  * @param radioPaused 정차 중 인터뷰가 열려 라디오를 잠시 멈췄는지.
  * @param onStartChapter 시작 전 챕터의 ＋: 그 챕터를 지금 쓰는 챕터로 바꾸고 인터뷰를 연다.
  * @param onOpenChapterScript 완료한 챕터 줄을 누르면 그 챕터 원고를 연다.
+ * @param onStopHere 가로 전체 창에서 오른쪽에 인터뷰가 열려 있으면 ‘이어쓰기’ 자리가 파란 ‘여기까지’가 되고, 누르면 이것을 부른다.
  */
 @Composable
 fun MainScreen(
@@ -66,6 +67,7 @@ fun MainScreen(
     modifier: Modifier = Modifier,
     onStartChapter: (Int) -> Unit = { onContinueWriting() },
     onOpenChapterScript: (Int) -> Unit = { onOpenScript() },
+    onStopHere: () -> Unit = {},
     showHeader: Boolean = true,
     selectedAction: ChapterAction? = null,
     radioPaused: Boolean = false,
@@ -84,7 +86,7 @@ fun MainScreen(
         ) {
             chapters.forEachIndexed { index, chapter ->
                 if (chapter == writing) {
-                    ExpandedChapter(chapter, onContinueWriting, onListen, onOpenScript, selectedAction)
+                    ExpandedChapter(chapter, onContinueWriting, onListen, onOpenScript, selectedAction, onStopHere)
                 } else {
                     // 펼친 챕터와 맞닿은 구분선만 끝까지 긋고, 나머지는 안쪽으로 들인다.
                     val nextIsExpanded = chapters.getOrNull(index + 1) == writing
@@ -152,6 +154,7 @@ private fun ExpandedChapter(
     onListen: () -> Unit,
     onOpenScript: () -> Unit,
     selectedAction: ChapterAction?,
+    onStopHere: () -> Unit,
 ) {
     Column {
         Column(
@@ -185,7 +188,12 @@ private fun ExpandedChapter(
                 modifier = Modifier.padding(start = 88.px),
                 horizontalArrangement = Arrangement.spacedBy(16.px),
             ) {
-                PillButton("이어쓰기", onContinueWriting, Modifier.weight(1f), AutoIcons.Pencil, filled = true, horizontalPaddingPx = 0f, selected = selectedAction == ChapterAction.CONTINUE)
+                if (selectedAction == ChapterAction.CONTINUE) {
+                    // 오른쪽에서 인터뷰 중: 지금 말하기를 끝내는 ‘여기까지’로 바꾼다.
+                    PillButton("여기까지", onStopHere, Modifier.weight(1f), AutoIcons.Clip, filled = true, horizontalPaddingPx = 0f)
+                } else {
+                    PillButton("이어쓰기", onContinueWriting, Modifier.weight(1f), AutoIcons.Pencil, filled = true, horizontalPaddingPx = 0f)
+                }
                 PillButton("들어보기", onListen, Modifier.weight(1f), AutoIcons.Play, iconSizePx = 26f, horizontalPaddingPx = 0f, selected = selectedAction == ChapterAction.LISTEN)
                 PillButton("원고 보기", onOpenScript, Modifier.weight(1f), AutoIcons.Document, horizontalPaddingPx = 0f, selected = selectedAction == ChapterAction.SCRIPT)
             }

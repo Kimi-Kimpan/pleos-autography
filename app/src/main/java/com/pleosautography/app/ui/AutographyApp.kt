@@ -198,8 +198,11 @@ fun AutographyApp(
                     else -> Unit
                 }
                 VoiceCommand.FIX -> if (navigator.current == Screen.ListenDrive) services.listen.applyFix(text)
-                VoiceCommand.LISTEN -> if (navigator.current == Screen.Driving || navigator.current == Screen.Main) {
-                    if (navigator.current == Screen.Main) navigator.openFromMain(Screen.ListenDrive) else navigator.navigate(Screen.ListenDrive)
+                VoiceCommand.LISTEN -> when (navigator.current) {
+                    Screen.Main -> navigator.openFromMain(Screen.ListenDrive)
+                    // 인터뷰 중(오토가 묻는 동안 포함)에도 원고 듣기로 넘어간다. 답변은 이미 저장되어 있다.
+                    Screen.Driving, Screen.Interview, Screen.Summary -> navigator.navigate(Screen.ListenDrive)
+                    else -> Unit
                 }
                 VoiceCommand.WHATS_UP -> if (navigator.current.drivingOnly || navigator.current == Screen.Main || navigator.current == Screen.Summary) {
                     val title = InterviewSession.titleOf(latestBook.current)
@@ -357,6 +360,10 @@ private fun ScreenContent(
     val driveModeNow = LocalDriveMode.current
     val startChapter = LocalStartChapter.current
     val scriptChapter = LocalScriptChapter.current
+    // ‘여기까지’: 다 채운 뒤라면 챕터를 마무리하고, 아니면 멈춘다. 둘 다 정리 중 → 요약 화면으로.
+    val stopHere: () -> Unit = {
+        if (interviewUi.chapterFull) services?.interview?.finishChapter(startNext = false) else navigator.showSummary()
+    }
     when (screen) {
         Screen.Main -> MainScreen(
             onContinueWriting = { navigator.openFromMain(Screen.Interview) },
@@ -371,6 +378,7 @@ private fun ScreenContent(
                 scriptChapter.select(null)
                 navigator.openFromMain(Screen.Script)
             },
+            onStopHere = stopHere,
             onOpenChapterScript = { chapter ->
                 scriptChapter.select(chapter)
                 navigator.openFromMain(Screen.Script)
@@ -390,14 +398,7 @@ private fun ScreenContent(
         )
         Screen.Interview -> InterviewScreen(
             parkedPane = fullWindow && LocalDriveMode.current == DriveMode.PARKED,
-            // ‘여기까지’: 다 채운 뒤라면 챕터를 마무리하고, 아니면 멈춘다(정차 중 시작했다면 Main, 주행 중이면 주행 홈).
-            onStopHere = {
-                if (interviewUi.chapterFull) {
-                    services?.interview?.finishChapter(startNext = false)
-                } else {
-                    navigator.showSummary()
-                }
-            },
+            onStopHere = stopHere,
             fullActions = ChapterFullActions(
                 onFinish = { services?.interview?.finishChapter(startNext = false) },
                 onNextChapter = { services?.interview?.finishChapter(startNext = true) },

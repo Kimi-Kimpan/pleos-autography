@@ -119,7 +119,10 @@ private fun DrawScope.drawSelectionRing(width: Float) {
     )
 }
 
-/** ‘여기까지’(저장 후 중지) 버튼: 클립 아이콘이 들어간 아웃라인 알약. 주행 중에도 쓸 수 있다. */
+/**
+ * ‘여기까지’(저장 후 중지) 버튼: 클립 아이콘이 들어간 파란 알약(흰 글씨·흰 클립).
+ * 지금 진행 중인 말하기를 끝내는 버튼이라 파랗게 채워, 주행 중에도 누를 곳이 바로 보이게 한다.
+ */
 @Composable
 fun StopHereButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
     PillButton(
@@ -127,6 +130,7 @@ fun StopHereButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
         onClick = onClick,
         modifier = modifier,
         icon = AutoIcons.Clip,
+        filled = true,
         heightPx = 104f,
         iconSizePx = 36f,
         startPaddingPx = 30f,

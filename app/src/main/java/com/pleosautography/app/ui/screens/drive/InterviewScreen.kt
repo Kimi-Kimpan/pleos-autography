@@ -67,7 +67,7 @@ class ChapterFullActions(
  * 챕터 질문을 모두 채우면 같은 화면에서 안내 문구와 버튼만 바뀐다(시안 ChapterFull, 정차 중 ChapterDone).
  *
  * @param parkedPane 가로 전체 창 정차 중 오른쪽 칸에 열 때(시안 FullParkInterview).
- *   머리글 없이 질문부터 시작하고, ‘여기까지’는 아래 가운데에 둔다.
+ *   머리글 없이 질문부터 시작한다. ‘여기까지’는 왼쪽 목록의 그 챕터 ‘이어쓰기’ 자리에 파랗게 둔다(이 칸에는 두지 않는다).
  */
 @Composable
 fun InterviewScreen(
@@ -114,19 +114,6 @@ fun InterviewScreen(
                             bottom = if (parkedPane) 10.px else 60.px,
                         ),
                 )
-                if (parkedPane) {
-                    PillButton(
-                        text = "여기까지",
-                        onClick = onStopHere,
-                        modifier = Modifier.align(Alignment.CenterHorizontally),
-                        icon = AutoIcons.Clip,
-                        heightPx = 96f,
-                        iconSizePx = 34f,
-                        startPaddingPx = 30f,
-                        endPaddingPx = 40f,
-                        textSpec = TextSpec(32f, FontWeight.ExtraBold),
-                    )
-                }
             }
         }
     }
