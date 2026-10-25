@@ -1,6 +1,17 @@
 package com.pleosautography.app.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.runtime.Stable
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
@@ -119,7 +130,19 @@ fun AutographyApp(
 ) {
     // 시작 화면은 처음 스택에 바로 넣는다. 창 크기 변경으로 Activity가 다시 만들어져도 저장된 스택을 쓴다.
     val navigator = rememberAppNavigator(launch.screen)
-    BackHandler(enabled = navigator.canGoBack) { navigator.back() }
+    // 오토그래피 라디오 플레이어: 화면이 아니라 미니 플레이어가 있는 칸 위로 올라오는 시트다.
+    val playerSheet = rememberSaveable(saver = PlayerSheet.Saver) { PlayerSheet() }
+    BackHandler(enabled = navigator.canGoBack && !playerSheet.open) { navigator.back() }
+    BackHandler(enabled = playerSheet.open) { playerSheet.open = false }
+    // 주행 중에는 펼치지 않는다(펼친 채 출발하면 접는다).
+    LaunchedEffect(driveMode) { if (driveMode == DriveMode.DRIVING) playerSheet.open = false }
+    // 디버그 실행(--es screen Player)·예전 경로로 Player 화면이 열리면 시트로 바꾼다.
+    LaunchedEffect(navigator.current) {
+        if (navigator.current == Screen.Player) {
+            navigator.back()
+            if (driveMode == DriveMode.PARKED) playerSheet.open = true
+        }
+    }
     LaunchedEffect(launch.id) { launch.screen?.let(navigator::reset) }
     // 주행 상태가 바뀌거나 맞지 않는 화면이 열리면 그 상태의 홈으로 보낸다.
     LaunchedEffect(driveMode, navigator.current) { navigator.syncWithDriveMode(driveMode) }
@@ -273,6 +296,7 @@ fun AutographyApp(
                 LocalRadioState provides radioState,
                 LocalOnboardingDraft provides draft,
                 LocalStartChapter provides { chapter -> pendingChapter = chapter },
+                LocalPlayerSheet provides playerSheet,
                 LocalScriptChapter provides ScriptChapter(scriptChapter) { scriptChapter = it },
                 LocalBookState provides book,
                 LocalAppServices provides services,
@@ -332,8 +356,12 @@ private fun AppPanes(
                 RadioSidePane(Modifier.weight(1f))
             }
         } else if (twoPane) {
-            val detail = navigator.current.takeIf { it.role == PaneRole.DETAIL }
-            ScreenContent(Screen.Main, navigator, Modifier.width(FULL_LEFT_PANE_WIDTH.px), fullWindow = true)
+            val detail = navigator.current.takeIf { it.role == PaneRole.DETAIL && it != Screen.Player }
+            // 왼쪽 목록 칸: 미니 플레이어의 ⌃를 누르면 플레이어가 이 칸 안에서 아래→위로 올라와 목록을 덮는다.
+            Box(Modifier.width(FULL_LEFT_PANE_WIDTH.px).fillMaxHeight()) {
+                ScreenContent(Screen.Main, navigator, Modifier.fillMaxSize(), fullWindow = true)
+                PlayerSheetHost(Modifier.fillMaxSize())
+            }
             VLine(color = AutoColors.Ink)
             if (detail != null) {
                 // 창 오른쪽 위 상태 칩과 겹치지 않게 오른쪽 칸 위에 칩 높이만큼 비운다.
@@ -342,8 +370,51 @@ private fun AppPanes(
                 ParkedWelcomePane(Modifier.weight(1f))
             }
         } else {
-            ScreenContent(navigator.current, navigator, Modifier.weight(1f))
+            // 세로 한쪽 창: 플레이어는 화면 전체(책등 오른쪽)를 아래→위로 덮는다.
+            Box(Modifier.weight(1f).fillMaxHeight()) {
+                ScreenContent(navigator.current.takeIf { it != Screen.Player } ?: Screen.Main, navigator, Modifier.fillMaxSize())
+                if (driveMode == DriveMode.PARKED) PlayerSheetHost(Modifier.fillMaxSize())
+            }
         }
+    }
+}
+
+/** 플레이어 시트가 열려 있는지. 저장해 두어 창 크기가 바뀌어도 유지한다. */
+@Stable
+private class PlayerSheet(open: Boolean = false) {
+    var open by mutableStateOf(open)
+
+    companion object {
+        val Saver = androidx.compose.runtime.saveable.Saver<PlayerSheet, Boolean>(save = { it.open }, restore = { PlayerSheet(it) })
+    }
+}
+
+private val LocalPlayerSheet = staticCompositionLocalOf { PlayerSheet() }
+
+/** 펼치는 시간(약 300ms). 사용자가 누를 때만 일어나는 전환이라 주행 중 자동 애니메이션 규칙에 걸리지 않는다. */
+private const val PLAYER_SHEET_MS = 300
+
+/**
+ * 오토그래피 라디오 플레이어 시트: 미니 플레이어 자리(아래)에서 위로 올라와 그 칸을 덮고, 접으면 아래로 내려간다.
+ * 위쪽 ⌄로 접는다.
+ */
+@Composable
+private fun PlayerSheetHost(modifier: Modifier = Modifier) {
+    val sheet = LocalPlayerSheet.current
+    AnimatedVisibility(
+        visible = sheet.open,
+        modifier = modifier,
+        enter = slideInVertically(tween(PLAYER_SHEET_MS, easing = FastOutSlowInEasing)) { it },
+        exit = slideOutVertically(tween(PLAYER_SHEET_MS, easing = FastOutLinearInEasing)) { it },
+    ) {
+        PlayerScreen(
+            onCollapse = { sheet.open = false },
+            modifier = Modifier
+                .fillMaxSize()
+                .background(AutoColors.Bg)
+                // 아래 목록이 눌리지 않게 시트가 터치를 받는다.
+                .pointerInput(Unit) { detectTapGestures { } },
+        )
     }
 }
 
@@ -359,6 +430,7 @@ private fun ScreenContent(
     val bookId = LocalBookState.current.id
     val driveModeNow = LocalDriveMode.current
     val startChapter = LocalStartChapter.current
+    val playerSheet = LocalPlayerSheet.current
     val scriptChapter = LocalScriptChapter.current
     // ‘여기까지’: 다 채운 뒤라면 챕터를 마무리하고, 아니면 멈춘다. 둘 다 정리 중 → 요약 화면으로.
     val stopHere: () -> Unit = {
@@ -373,7 +445,7 @@ private fun ScreenContent(
                 startChapter(chapter)
                 navigator.openFromMain(Screen.Interview)
             },
-            onListen = { navigator.openFromMain(Screen.Player) },
+            onListen = { playerSheet.open = true },
             onOpenScript = {
                 scriptChapter.select(null)
                 navigator.openFromMain(Screen.Script)
@@ -383,7 +455,7 @@ private fun ScreenContent(
                 scriptChapter.select(chapter)
                 navigator.openFromMain(Screen.Script)
             },
-            onOpenPlayer = { navigator.openFromMain(Screen.Player) },
+            onOpenPlayer = { playerSheet.open = true },
             modifier = modifier,
             showHeader = !fullWindow,
             // 완료한 챕터의 원고를 열었으면 펼친(지금 쓰는) 챕터의 버튼은 고른 것으로 보이지 않는다.
@@ -392,7 +464,7 @@ private fun ScreenContent(
         )
         Screen.Driving -> DrivingScreen(
             onCallOto = { navigator.navigate(Screen.Interview) },
-            onOpenPlayer = { navigator.navigate(Screen.Player) },
+            onOpenPlayer = { playerSheet.open = true },
             modifier = modifier,
             showMiniPlayer = !fullWindow,
         )
@@ -421,12 +493,8 @@ private fun ScreenContent(
             onCallOto = { services?.let { it.speechInput.inject(it.demoFixSentence) } },
             modifier = modifier,
         )
-        Screen.Player -> PlayerScreen(
-            onCollapse = { if (navigator.canGoBack) navigator.back() else navigator.navigate(Screen.Main) },
-            modifier = modifier,
-            // 가로 전체 창에서는 왼쪽에 목록이 늘 있어 접을 필요가 없다(상태 칩과도 겹친다).
-            showCollapse = !fullWindow,
-        )
+        // 플레이어는 시트(PlayerSheetHost)로 그린다. 여기로 오는 Player는 곧바로 시트로 바뀐다.
+        Screen.Player -> Unit
         Screen.Settings -> {
             val draft = LocalOnboardingDraft.current
             val settings = services?.library?.collectAsState()?.value?.settings
@@ -478,7 +546,7 @@ private fun ScreenContent(
                     services?.radioPlayer?.playSimilar()
                     navigator.navigate(Screen.Driving)
                 } else {
-                    navigator.openFromMain(Screen.Player)
+                    playerSheet.open = true
                 }
             },
             modifier = modifier,
@@ -504,7 +572,6 @@ private fun ScreenContent(
 /** 펼친 챕터의 어느 버튼으로 연 화면인지(가로 전체 창에서 선택 표시). */
 private fun Screen.chapterAction(): ChapterAction? = when (this) {
     Screen.Interview -> ChapterAction.CONTINUE
-    Screen.Player -> ChapterAction.LISTEN
     Screen.Script -> ChapterAction.SCRIPT
     else -> null
 }
