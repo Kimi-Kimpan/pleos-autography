@@ -104,10 +104,10 @@ class OnboardingDraft(name: String, suffix: Int = 0, title: String? = null, chap
 
     val firstChapter: Int get() = if (chapter == PICK_FOR_ME) PICKED_CHAPTER else chapter
 
-    /** 새 자서전을 시작할 때: 이름은 남기고 나머지는 처음 값으로. */
-    fun reset(ownerName: String?) {
+    /** 새 자서전을 시작할 때: 이름과 부르는 이름은 남기고 나머지는 처음 값으로. */
+    fun reset(ownerName: String?, callName: String?) {
         name = ownerName ?: DEFAULT_NAME
-        suffix = 0
+        suffix = callNames.indexOf(callName).coerceAtLeast(0)
         title = null
         chapter = PICKED_CHAPTER
     }

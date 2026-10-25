@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import com.pleosautography.app.data.demo.ChapterStatus
 import com.pleosautography.app.data.demo.DemoData
+import com.pleosautography.app.ui.screens.LocalLiveProgress
 import com.pleosautography.app.ui.components.PillButton
 import com.pleosautography.app.ui.components.RingTimer
 import com.pleosautography.app.ui.components.RuledText
@@ -64,7 +65,7 @@ fun PauseScreen(onSaveAndStop: () -> Unit, onContinue: () -> Unit, modifier: Mod
             Row(horizontalArrangement = Arrangement.spacedBy(14.px)) {
                 StatusChip("도착까지 ${LocalDriveSituation.current.minutesToArrival ?: demo.pauseMinutesToArrival}분", sizePx = 24f, color = AutoColors.OnInk, horizontalPaddingPx = 18f, verticalPaddingPx = 6f)
                 StatusChip(
-                    "${chapter.number}장 ${chapter.title} · 질문 ${demo.pauseQuestionNumber}",
+                    "${chapter.number}장 ${chapter.title} · 질문 ${LocalLiveProgress.current?.questionNumber ?: demo.pauseQuestionNumber}",
                     modifier = Modifier.alpha(0.85f),
                     sizePx = 24f,
                     color = AutoColors.OnInk,

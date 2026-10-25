@@ -130,7 +130,7 @@ class AutographyRepository(private val db: AppDatabase, private val assets: Asse
         }
 
     /**
-     * 시연용 서재(디버그 빌드, demo.sh --reset): 예시 답변이 든 책(1장 완성, ‘첫 차’ 3편)과
+     * 시연용 서재(디버그 빌드, demo.sh --reset): 예시 답변이 든 책(1장 완성, ‘첫 차’ 5편)과
      * 지난번에 쓰던 다른 책 한 권. 이미 책이 있으면 아무것도 하지 않는다.
      */
     suspend fun setupDemoLibrary(seed: Map<String, String>) = withContext(Dispatchers.IO) {

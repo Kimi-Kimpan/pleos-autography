@@ -70,7 +70,8 @@ class DemoEvents(
             DemoEvent.SAY_LISTEN -> speech.inject("오토야, 이 이야기 들려줘")
             DemoEvent.SAY_FIX -> speech.inject(fixSentence)
             DemoEvent.ANSWER_DONE, DemoEvent.MORE -> speech.finishNow()
-            DemoEvent.FINISH -> interview.finishChapter(startNext = false)
+            // 다 채운 뒤에만 챕터를 마무리한다. 아직이면 “여기까지”(멈추고 저장)와 같다.
+            DemoEvent.FINISH -> if (interview.ui.value.chapterFull) interview.finishChapter(startNext = false) else speech.inject("여기까지")
             DemoEvent.SETUP -> setupDemo()
             else -> Unit
         }

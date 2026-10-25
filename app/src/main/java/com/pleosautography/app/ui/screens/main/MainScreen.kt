@@ -17,6 +17,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.clickable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,6 +55,7 @@ enum class ChapterAction { CONTINUE, LISTEN, SCRIPT }
  * @param selectedAction 오른쪽 칸에 열린 화면의 버튼(선택 표시).
  * @param radioPaused 정차 중 인터뷰가 열려 라디오를 잠시 멈췄는지.
  * @param onStartChapter 시작 전 챕터의 ＋: 그 챕터를 지금 쓰는 챕터로 바꾸고 인터뷰를 연다.
+ * @param onOpenChapterScript 완료한 챕터 줄을 누르면 그 챕터 원고를 연다.
  */
 @Composable
 fun MainScreen(
@@ -62,6 +65,7 @@ fun MainScreen(
     onOpenPlayer: () -> Unit,
     modifier: Modifier = Modifier,
     onStartChapter: (Int) -> Unit = { onContinueWriting() },
+    onOpenChapterScript: (Int) -> Unit = { onOpenScript() },
     showHeader: Boolean = true,
     selectedAction: ChapterAction? = null,
     radioPaused: Boolean = false,
@@ -88,6 +92,7 @@ fun MainScreen(
                         chapter = chapter,
                         fullWidthDivider = nextIsExpanded,
                         onAction = if (chapter.status == ChapterStatus.DONE) onListen else ({ onStartChapter(chapter.number) }),
+                        onOpen = if (chapter.status == ChapterStatus.DONE) ({ onOpenChapterScript(chapter.number) }) else null,
                     )
                 }
             }
@@ -116,11 +121,12 @@ private fun Header(greeting: String) {
 }
 
 @Composable
-private fun ChapterRow(chapter: ChapterSummary, fullWidthDivider: Boolean, onAction: () -> Unit) {
+private fun ChapterRow(chapter: ChapterSummary, fullWidthDivider: Boolean, onAction: () -> Unit, onOpen: (() -> Unit)? = null) {
     Column(Modifier.padding(horizontal = if (fullWidthDivider) 0.px else 32.px)) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .then(if (onOpen != null) Modifier.clickable(role = Role.Button, onClickLabel = "${chapter.number}장 원고 보기", onClick = onOpen) else Modifier)
                 .height(138.px)
                 .padding(horizontal = if (fullWidthDivider) 32.px else 0.px),
             verticalAlignment = Alignment.CenterVertically,

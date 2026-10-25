@@ -124,6 +124,8 @@ fun AutographyApp(
     val situation = services?.situation
     var pendingIntro by remember { mutableStateOf<String?>(null) }
     var pendingChapter by remember { mutableStateOf<Int?>(null) }
+    // 원고 보기로 열 챕터(완료한 챕터 줄을 눌렀을 때). null이면 지금 쓰는 챕터.
+    var scriptChapter by rememberSaveable { mutableStateOf<Int?>(null) }
 
     // 첫 실행: 책이 하나도 없으면(첫 설치, 마지막 책을 지움) 정차 중에 첫 실행 화면으로 시작한다.
     // 첫 실행 중에 책이 생기면(시연용 서재 준비 포함) 홈으로 간다.
@@ -256,6 +258,7 @@ fun AutographyApp(
                 LocalRadioState provides radioState,
                 LocalOnboardingDraft provides draft,
                 LocalStartChapter provides { chapter -> pendingChapter = chapter },
+                LocalScriptChapter provides ScriptChapter(scriptChapter) { scriptChapter = it },
                 LocalBookState provides book,
                 LocalAppServices provides services,
             ) {
@@ -339,6 +342,7 @@ private fun ScreenContent(
     val interviewUi = LocalInterviewUi.current
     val bookId = LocalBookState.current.id
     val startChapter = LocalStartChapter.current
+    val scriptChapter = LocalScriptChapter.current
     when (screen) {
         Screen.Main -> MainScreen(
             onContinueWriting = { navigator.openFromMain(Screen.Interview) },
@@ -349,11 +353,19 @@ private fun ScreenContent(
                 navigator.openFromMain(Screen.Interview)
             },
             onListen = { navigator.openFromMain(Screen.Player) },
-            onOpenScript = { navigator.openFromMain(Screen.Script) },
+            onOpenScript = {
+                scriptChapter.select(null)
+                navigator.openFromMain(Screen.Script)
+            },
+            onOpenChapterScript = { chapter ->
+                scriptChapter.select(chapter)
+                navigator.openFromMain(Screen.Script)
+            },
             onOpenPlayer = { navigator.openFromMain(Screen.Player) },
             modifier = modifier,
             showHeader = !fullWindow,
-            selectedAction = if (fullWindow) navigator.current.chapterAction() else null,
+            // 완료한 챕터의 원고를 열었으면 펼친(지금 쓰는) 챕터의 버튼은 고른 것으로 보이지 않는다.
+            selectedAction = if (fullWindow && (navigator.current != Screen.Script || scriptChapter.chapter == null)) navigator.current.chapterAction() else null,
             radioPaused = LocalRadioPlayback.current.paused,
         )
         Screen.Driving -> DrivingScreen(
@@ -376,12 +388,14 @@ private fun ScreenContent(
                 onFinish = { services?.interview?.finishChapter(startNext = false) },
                 onNextChapter = { services?.interview?.finishChapter(startNext = true) },
                 onReadScript = {
+                    scriptChapter.select(null)
                     if (navigator.backStack.contains(Screen.Main)) navigator.openFromMain(Screen.Script) else navigator.navigate(Screen.Script)
                 },
             ),
             modifier = modifier,
         )
         Screen.Script -> ScriptScreen(
+            chapterNumber = scriptChapter.chapter,
             onHome = { navigator.navigate(Screen.Main) },
             onContinueWriting = {
                 if (navigator.backStack.contains(Screen.Main)) navigator.openFromMain(Screen.Interview) else navigator.navigate(Screen.Interview)
@@ -404,11 +418,11 @@ private fun ScreenContent(
         )
         Screen.Settings -> {
             val draft = LocalOnboardingDraft.current
-            val ownerName = services?.library?.collectAsState()?.value?.settings?.ownerName
+            val settings = services?.library?.collectAsState()?.value?.settings
             SettingsScreen(
                 onHome = { navigator.navigate(Screen.Main) },
                 onNewBook = {
-                    draft.reset(ownerName)
+                    draft.reset(settings?.ownerName, settings?.callName)
                     navigator.navigate(Screen.Onboarding)
                 },
                 modifier = modifier,
@@ -489,6 +503,11 @@ private fun WindowStatusChip(current: Screen, driveMode: DriveMode, modifier: Mo
 
 /** 홈에서 다른 챕터를 골라 인터뷰를 열 때, 그 챕터로 시작하게 알린다. */
 private val LocalStartChapter = staticCompositionLocalOf<(Int) -> Unit> { {} }
+
+/** 원고 보기로 열 챕터와 그 값을 바꾸는 함수. */
+private class ScriptChapter(val chapter: Int?, val select: (Int?) -> Unit)
+
+private val LocalScriptChapter = staticCompositionLocalOf { ScriptChapter(null) {} }
 
 /** 첫 실행 세 단계(순서대로). */
 private val ONBOARDING = listOf(Screen.Onboarding, Screen.Onboarding2, Screen.Onboarding3)

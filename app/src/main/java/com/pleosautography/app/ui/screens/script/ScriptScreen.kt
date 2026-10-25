@@ -78,6 +78,7 @@ private val Caption = TextSpec(20f, FontWeight.SemiBold)
  * - 다시 듣기: 그 문단을 오토 목소리로 읽는다(시연은 읽는 시간만큼 문장을 차례로 칠한다).
  * - 말로 고치기: 시연용 준비된 정정 문장(“1988년이 아니라 1987년”)을 그 문단에 적용한다. 실제 음성 정정은 원고 듣기에서 한다.
  * @param showHome 가로 전체 창에서는 왼쪽에 홈이 늘 있으므로 ‘홈’ 버튼을 뺀다.
+ * @param chapterNumber 열 챕터(홈에서 완료한 챕터를 골랐을 때). null이면 인터뷰 중 챕터나 지금 쓰는 챕터.
  */
 @Composable
 fun ScriptScreen(
@@ -86,10 +87,15 @@ fun ScriptScreen(
     onListenFromStart: () -> Unit,
     modifier: Modifier = Modifier,
     showHome: Boolean = true,
+    chapterNumber: Int? = null,
 ) {
-    // 인터뷰에서 열었으면 그 챕터, 아니면 지금 쓰는 챕터.
+    // 고른 챕터(완료한 챕터 줄), 인터뷰에서 열었으면 그 챕터, 아니면 지금 쓰는 챕터.
     val interviewChapter = LocalInterviewUi.current.chapter
-    val chapter = if (interviewChapter > 0) chapterSummary(interviewChapter) else currentChapter()
+    val chapter = when {
+        chapterNumber != null -> chapterSummary(chapterNumber)
+        interviewChapter > 0 -> chapterSummary(interviewChapter)
+        else -> currentChapter()
+    }
     val services = LocalAppServices.current
     val answers = remember(services, chapter.number) { services?.answersFor?.invoke(chapter.number) }
         ?.collectAsState(initial = null)?.value
@@ -162,6 +168,7 @@ fun ScriptScreen(
                 paragraphs.forEachIndexed { index, paragraph ->
                     Paragraph(
                         paragraph = paragraph,
+                        first = index == 0,
                         selected = selected == index,
                         readingSentence = if (reading == index) readingSentence else null,
                         onLongPress = { selected = if (selected == index) null else index },
@@ -228,7 +235,7 @@ private class ParagraphActions(val reading: Boolean, val onFix: () -> Unit, val 
  * @param readingSentence 다시 듣기 중이면 지금 읽는 문장 번호(연보라로 칠한다).
  */
 @Composable
-private fun Paragraph(paragraph: ManuscriptParagraph, selected: Boolean, readingSentence: Int?, onLongPress: () -> Unit, actions: ParagraphActions) {
+private fun Paragraph(paragraph: ManuscriptParagraph, first: Boolean, selected: Boolean, readingSentence: Int?, onLongPress: () -> Unit, actions: ParagraphActions) {
     val text = buildAnnotatedString {
         val target = if (selected) paragraph.highlight ?: paragraph.text else null
         val start = target?.let { paragraph.text.indexOf(it) } ?: -1
@@ -249,10 +256,12 @@ private fun Paragraph(paragraph: ManuscriptParagraph, selected: Boolean, reading
     Box(Modifier.pointerInput(Unit) { detectTapGestures(onLongPress = { onLongPress() }) }) {
         RuledText(text, Body, Modifier.fillMaxWidth())
         if (selected) {
+            // 문단 위 오른쪽에 띄운다. 첫 문단은 위가 머리글에 가려지므로 아래에 띄운다.
             Row(
                 modifier = Modifier
+                    .align(if (first) Alignment.BottomEnd else Alignment.TopEnd)
                     .wrapContentSize()
-                    .offset(x = 250.px, y = (-86).px),
+                    .offset(y = if (first) 86.px else (-86).px),
                 horizontalArrangement = Arrangement.spacedBy(12.px),
             ) {
                 FloatingPill("말로 고치기", filled = true, onClick = actions.onFix)

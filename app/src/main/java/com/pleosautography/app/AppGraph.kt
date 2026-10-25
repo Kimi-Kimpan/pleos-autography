@@ -84,14 +84,14 @@ class AppGraph private constructor(context: Context) {
         scope.launch { block() }
     }
 
-    /** 시연용 서재(디버그 빌드만): 예시 답변이 든 ‘김○○의 자서전’(1장 완성, ‘첫 차’ 3편)과 다른 책 한 권. */
+    /** 시연용 서재(디버그 빌드만): 예시 답변이 든 ‘김○○의 자서전’(1장 완성, ‘첫 차’ 5편)과 다른 책 한 권. */
     suspend fun setupDemoLibrary() {
         if (debuggable) repository.setupDemoLibrary(demoScript.seed)
     }
 
     /**
      * 첫 실행·새 자서전을 마치면 책을 만든다. 디버그 빌드의 첫 책은 ‘첫 차’로 시작하면 예시 답변을 넣어
-     * 시연을 ‘첫 차’ 43%부터 이어 갈 수 있게 한다.
+     * 시연을 ‘첫 차’ 71%부터 이어 갈 수 있게 한다.
      */
     suspend fun createBook(title: String, ownerName: String, callName: String, firstChapter: Int) {
         val first = repository.library.value?.books.isNullOrEmpty()
