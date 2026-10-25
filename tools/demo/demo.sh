@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# 시연 영상용 데모 진행 스크립트(초안). 디버그 빌드가 에뮬레이터에 설치되어 있어야 한다.
+# 시연 영상용 데모 진행 스크립트(약 90초, 7장면). 디버그 빌드가 에뮬레이터에 설치되어 있어야 한다.
 #
 #   tools/demo/demo.sh            장면마다 Enter를 눌러 진행(발표자가 속도를 정한다)
-#   tools/demo/demo.sh --record   위와 같고, 에뮬레이터 화면을 녹화해 captures/demo/에 받는다(최대 3분)
-#   tools/demo/demo.sh --reset    시작 전에 앱 데이터를 지우고 예시 답변 3편부터 다시 시작한다
+#   tools/demo/demo.sh --reset    시작 전에 앱 데이터를 지우고 시연용 서재(‘첫 차’ 5/7편, 71%)부터 시작한다
+#   tools/demo/demo.sh --record   에뮬레이터 화면을 녹화해 captures/demo/에 받는다(최대 3분)
 #
-# 장면 구성은 docs/demo-video.md 참고. 오토 목소리와 알림 멜로디는 영상 편집에서 입힌다.
+# 장면 구성과 오토 대사는 docs/demo-video.md. 오토 목소리와 알림 멜로디는 영상 편집에서 입힌다.
 set -euo pipefail
 
 ADB="${ADB:-$HOME/Library/Android/sdk/platform-tools/adb}"
@@ -28,7 +28,7 @@ split_with_navi() {
   sleep 2
   open_app
   sleep 1
-  "$ADB" shell input swipe 2547 719 1700 719 600
+  "$ADB" shell input swipe 2547 717 1700 717 600
 }
 # 앱 영역을 한 창(가로 전체)으로: 핸들을 오른쪽 끝으로 되돌린다.
 full_window() { "$ADB" shell input swipe 1706 719 2550 719 600; }
@@ -37,7 +37,7 @@ step() {
   echo "▶ $1"
   read -r -p "  Enter를 누르면 진행합니다 " _
 }
-# 답변 장면: 말을 멈추면 앱이 1.5초 뒤 스스로 받아 적는다. 침묵 감지가 안 되면 a를 입력해 말을 끝낸다.
+# 답변 장면: 말을 멈추면 앱이 1초 뒤 스스로 받아 적는다. 침묵 감지가 안 되면 a를 입력해 말을 끝낸다.
 answer_step() {
   echo
   echo "▶ $1"
@@ -53,9 +53,11 @@ if $RESET; then "$ADB" shell pm clear --user 10 "$PKG" >/dev/null; fi
 for perm in android.car.permission.CAR_SPEED android.permission.RECORD_AUDIO; do
   "$ADB" shell pm grant --user 10 "$PKG" "$perm" || true
 done
-ev real
-open_app
+# 시연용 서재(책이 없을 때만 만든다)와 정차 상태로 연다. 가로 전체 창에서 시작한다.
+open_app --es setup demo --es drive park
 sleep 2
+full_window
+sleep 1
 
 if $RECORD; then
   "$ADB" shell rm -f /sdcard/autography-demo.mp4
@@ -65,53 +67,44 @@ if $RECORD; then
 fi
 
 # ── 장면 ───────────────────────────────────────────────
-step "1. 정차 중 홈(가로 전체 창): 챕터 목록과 인사말"
+step "① 정차 홈(가로 전체 창): 챕터 목록과 인사말 — ‘첫 차’ 71%"
 ev park
 
-step "2. 출발: 기어 D → 주행 홈 + 라디오로 자동 전환"
+step "② 출발: 기어 D → 주행 홈 + 라디오"
 ev drive
 
-step "3. 내비와 나란히(세로 한쪽 창)"
+step "② 이어서: 내비와 나란히(세로 한쪽 창)"
 split_with_navi
 
-step "4. 정체 15분 → 알림 멜로디 → 대화 제안"
+step "③ 정체 15분 → 알림 멜로디 → 대화 제안(5초 안에 다음 Enter)"
 ev congestion15
 
-step "5. “응” → 인터뷰 시작(오토가 질문을 읽는 시간만큼 기다린 뒤 듣기 시작)"
+step "③ “응” → 인터뷰 시작(질문 6)"
 ev yes
 
-answer_step "6. 질문 4에 답하기: 마이크에 대고 실제로 말한다(파형이 따라 움직인다). 말을 멈추면 받아 적고 진행률이 오른 뒤, 오토가 후속 질문을 한다"
+answer_step "④ 질문 6에 답하기: 마이크에 대고 말한다. 말을 멈추면 받아 적고, 오토가 후속 질문을 한다"
 
-step "7. 복잡한 구간 진입 → 대화를 미룬다(답변은 이미 저장)"
-ev complex_start
+answer_step "⑤ 질문 7에 답하기 → ‘첫 차’를 다 채웠어요!(작은 파형으로 계속 듣는다)"
 
-step "8. 구간 통과 → 알림 멜로디 → 아까 이야기 다시 제안"
-ev complex_end
-
-step "8-1. “응” → 후속 질문부터 이어 하기"
-ev yes
-
-answer_step "9-1. 질문 5에 답하기 → 후속 질문"
-answer_step "9-2. 질문 6에 답하기 → 후속 질문"
-answer_step "9-3. 질문 7에 답하기 → ‘첫 차’를 다 채웠어요! (작은 파형으로 계속 듣는다)"
-
-step "10. “여기까지” → 챕터를 완성으로 저장하고 주행 홈으로"
+step "⑤ “여기까지” → 챕터 완성, 주행 홈(‘일과 생계’)"
 ev finish
 
-step "11. “들려줘” → 내 원고 듣기·고치기(1988년 → 1987년)"
-ev listen
-
-step "12. “여기까지” → 주행 홈, 이어서 “오토야, 뭐해?” → 다음 챕터 인터뷰"
-ev stop
-sleep 1
+step "⑥ “오토야, 뭐해?” → ‘일과 생계’ 인터뷰"
 ev whatsup
 
-step "13. 도착 10분 전 → 새 질문 없이 마무리(3초 뒤 자동 저장, 주행 홈으로)"
+step "⑥ 도착 9분 전(오토가 말하는 중에) → 마무리 화면, 3초 뒤 저장"
 ev arrival10
 
-step "14. 도착·정차(P) → 정차 홈: ‘첫 차’ 완료, ‘일과 생계’ 쓰는 중"
-full_window
+step "⑥ 도착·정차(P) → 정차 홈"
 ev park
+
+step "⑦ 가로 전체 창 → ‘첫 차’ 줄을 눌러 원고 보기"
+full_window
+sleep 2
+"$ADB" shell input tap 1100 286       # 02 첫 차(완료) 줄
+
+step "⑦ ‘1988년 겨울’ 문단을 길게 눌러 말로 고치기·다시 듣기·지우기"
+"$ADB" shell input swipe 2140 410 2140 410 900
 
 if $RECORD; then
   step "녹화를 마칩니다"
