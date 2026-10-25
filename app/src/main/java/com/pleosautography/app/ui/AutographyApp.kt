@@ -85,6 +85,9 @@ import com.pleosautography.app.ui.theme.px
  */
 private const val TWO_PANE_MIN_WIDTH = 1400f
 
+/** 가로 전체 창 정차 중 오른쪽 칸 위 여백(시안 px): 상태 칩(위 36 + 높이 약 36)과 겹치지 않게. */
+private const val DETAIL_CHIP_INSET = 56f
+
 /** 가로 전체 창 왼쪽 칸의 폭(시안 px, design/html/FullDrive.html·FullPark.html). */
 private const val FULL_LEFT_PANE_WIDTH = 888f
 
@@ -330,7 +333,8 @@ private fun AppPanes(
             ScreenContent(Screen.Main, navigator, Modifier.width(FULL_LEFT_PANE_WIDTH.px), fullWindow = true)
             VLine(color = AutoColors.Ink)
             if (detail != null) {
-                ScreenContent(detail, navigator, Modifier.weight(1f), fullWindow = true)
+                // 창 오른쪽 위 상태 칩과 겹치지 않게 오른쪽 칸 위에 칩 높이만큼 비운다.
+                ScreenContent(detail, navigator, Modifier.weight(1f).padding(top = DETAIL_CHIP_INSET.px), fullWindow = true)
             } else {
                 ParkedWelcomePane(Modifier.weight(1f))
             }
@@ -425,6 +429,8 @@ private fun ScreenContent(
         Screen.Player -> PlayerScreen(
             onCollapse = { if (navigator.canGoBack) navigator.back() else navigator.navigate(Screen.Main) },
             modifier = modifier,
+            // 가로 전체 창에서는 왼쪽에 목록이 늘 있어 접을 필요가 없다(상태 칩과도 겹친다).
+            showCollapse = !fullWindow,
         )
         Screen.Settings -> {
             val draft = LocalOnboardingDraft.current

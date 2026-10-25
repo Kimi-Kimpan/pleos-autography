@@ -60,7 +60,7 @@ private val Meta = TextSpec(22f, FontWeight.SemiBold)
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun PlayerScreen(onCollapse: () -> Unit, modifier: Modifier = Modifier) {
+fun PlayerScreen(onCollapse: () -> Unit, modifier: Modifier = Modifier, showCollapse: Boolean = true) {
     val radio = DemoData.radio
     val now = LocalRadioState.current
     val player = LocalAppServices.current?.radioPlayer
@@ -79,7 +79,7 @@ fun PlayerScreen(onCollapse: () -> Unit, modifier: Modifier = Modifier) {
                 BasicText("내 자서전", style = Small.style(AutoColors.InkSecondary))
                 SingleLine("${LocalBookState.current.title} · ${chapter.number}장 ${chapter.title} 쓰는 중", BookLine, AutoColors.Ink)
             }
-            CircleIconButton(AutoIcons.ChevronDown, "내 자서전 열기", onClick = onCollapse, sizePx = 80f, iconSizePx = 36f)
+            if (showCollapse) CircleIconButton(AutoIcons.ChevronDown, "내 자서전 열기", onClick = onCollapse, sizePx = 80f, iconSizePx = 36f)
         }
         HLine(color = AutoColors.Ink)
 
