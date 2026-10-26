@@ -147,10 +147,11 @@ scene_S7() {
   ui_wait "말로 고치기" 5
   sleep 1
   ui_tap "말로 고치기"
-  ui_wait "고칠 내용을 말씀해 주세요" 5
-  sleep 1.5
+  # 입력창의 커서가 깜빡이는 동안은 화면을 덤프할 수 없어 시간으로 기다린다.
+  sleep 2.5
   ev answer # 시연: 준비된 정정 문장을 받아 적는다
-  sleep 4   # 입력창에 타이핑 → 취소선 미리보기
+  sleep 3.5 # 입력창에 타이핑 → 취소선 미리보기(이때 커서가 멈춘다)
+  ui_wait "확인" 8
   ui_tap "확인"
   sleep 2.5
   rec_stop S7

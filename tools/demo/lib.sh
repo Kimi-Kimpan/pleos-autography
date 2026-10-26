@@ -80,8 +80,11 @@ layout_nav_left() {
 }
 
 # uiautomator로 지금 화면의 요소를 찾는다. 글자(text)나 설명(content-desc)이 같으면 우선, 없으면 포함.
+# 화면이 계속 움직이면(깜빡이는 커서 등) uiautomator가 덤프하지 못한다. 예전 덤프를 읽지 않게 먼저 지운다.
 ui_find() {
-  "$ADB" shell uiautomator dump /sdcard/autography-ui.xml >/dev/null 2>&1 || return 1
+  "$ADB" shell rm -f /sdcard/autography-ui.xml
+  "$ADB" shell uiautomator dump /sdcard/autography-ui.xml >/dev/null 2>&1
+  "$ADB" shell test -s /sdcard/autography-ui.xml || return 1
   "$ADB" exec-out cat /sdcard/autography-ui.xml | python3 -I -c '
 import re, sys
 want = sys.argv[1]
