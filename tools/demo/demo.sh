@@ -4,8 +4,9 @@
 #   tools/demo/demo.sh            장면마다 Enter를 눌러 진행(발표자가 속도를 정한다)
 #   tools/demo/demo.sh --reset    시작 전에 앱 데이터를 지우고 시연용 서재(‘첫 차’ 5/7편, 71%)부터 시작한다
 #   tools/demo/demo.sh --record   에뮬레이터 화면을 녹화해 captures/demo/에 받는다(최대 3분)
-#   tools/demo/demo.sh --layout nav-left   내비와 나란히 놓을 때 내비를 왼쪽, 오토그래피를 오른쪽에 둔다
-#                                          (기본은 오토그래피 왼쪽·내비 오른쪽)
+#   tools/demo/demo.sh --layout nav-left   내비와 나란히 놓을 때 내비 대체 화면(디버그 NavStandIn)을 왼쪽,
+#                                          오토그래피를 오른쪽에 둔다(기본은 오토그래피 왼쪽·실제 내비 오른쪽)
+#   tools/demo/demo.sh --prepare-only      준비(초기화·권한·시연용 서재·창 배치)만 하고 끝낸다(scripts/record_scenes.sh가 쓴다)
 #
 # 장면 구성과 오토 대사는 docs/demo-video.md. 오토 목소리와 알림 멜로디는 영상 편집에서 입힌다.
 set -euo pipefail
@@ -15,10 +16,12 @@ PKG="com.pleosautography.app"
 RECORD=false
 RESET=false
 LAYOUT="app-left"
+PREPARE_ONLY=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --record) RECORD=true ;;
     --reset) RESET=true ;;
+    --prepare-only) PREPARE_ONLY=true ;;
     --layout)
       shift
       case "${1:-}" in
@@ -31,28 +34,26 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-ev() { "$ADB" shell am broadcast -a "$PKG.DEMO_EVENT" -p "$PKG" --es event "$1" >/dev/null; }
-open_app() { "$ADB" shell am start -n "$PKG/.MainActivity" "$@" >/dev/null; }
+source "$(dirname "$0")/lib.sh"
 # 앱 영역 오른쪽 끝 ⋮ 핸들을 끌어 내비와 나란히 놓는다(2560×1440 에뮬레이터 기준 좌표).
 # 핸들을 끌면 지금 앞에 있는 앱이 왼쪽, 바로 전에 쓴 앱이 오른쪽에 온다.
-#   app-left(기본): 내비 → 오토그래피 순으로 열고 끈다 → 오토그래피 왼쪽, 내비 오른쪽
-#   nav-left:       오토그래피 → 내비 순으로 열고 끈다 → 내비 왼쪽, 오토그래피 오른쪽
+#   app-left(기본): 실제 내비 → 오토그래피 순으로 열고 끈다 → 오토그래피 왼쪽, 내비 오른쪽
+#   nav-left:       오토그래피 → 내비 대체 화면 순(lib.sh layout_nav_left) → 내비 왼쪽, 오토그래피 오른쪽
+#                   에뮬레이터의 Pleos 내비는 지도 타일을 받지 못해 하얗게 보여서 직접 그린 지도로 대신한다.
 NAVI="ai.umos.maps.android.navigation.app/.MainActivity"
 split_with_navi() {
   if [[ "$LAYOUT" == "nav-left" ]]; then
-    open_app
-    sleep 2
-    "$ADB" shell am start -n "$NAVI" >/dev/null
-  else
-    "$ADB" shell am start -n "$NAVI" >/dev/null
-    sleep 2
-    open_app
+    layout_nav_left
+    return
   fi
+  "$ADB" shell am start -n "$NAVI" >/dev/null
+  sleep 2
+  open_app
   sleep 1
   "$ADB" shell input swipe 2547 717 1700 717 600
 }
-# 앱 영역을 한 창(가로 전체)으로: 핸들을 오른쪽 끝으로 되돌린다.
-full_window() { "$ADB" shell input swipe 1706 719 2550 719 600; }
+# 앱 영역을 한 창(가로 전체)으로.
+full_window() { layout_full; }
 step() {
   echo
   echo "▶ $1"
@@ -74,9 +75,17 @@ if $RESET; then "$ADB" shell pm clear --user 10 "$PKG" >/dev/null; fi
 for perm in android.car.permission.CAR_SPEED android.permission.RECORD_AUDIO; do
   "$ADB" shell pm grant --user 10 "$PKG" "$perm" || true
 done
-# 시연용 서재(책이 없을 때만 만든다)와 정차 상태로 연다. 가로 전체 창에서 시작한다.
+# 시연용 서재(책이 없을 때만 만든다)와 정차 상태로 연다. 디버그 ‘음성 확인’은 닫는다.
 open_app --es setup demo --es drive park
-sleep 2
+sleep 3
+close_voice_check
+sleep 1
+if $PREPARE_ONLY; then
+  # 녹화 스크립트용: 처음부터 내비와 나란히 둔다.
+  if [[ "$LAYOUT" == "nav-left" ]]; then layout_nav_left; else split_with_navi; fi
+  exit 0
+fi
+# 가로 전체 창에서 시작한다.
 full_window
 sleep 1
 
