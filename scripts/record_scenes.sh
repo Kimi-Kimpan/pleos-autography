@@ -33,6 +33,8 @@ REPORT=()
 
 prepare() {
   "$ROOT/tools/demo/demo.sh" --reset --layout nav-left --prepare-only
+  # 장면은 adb 이벤트로만 답한다. Mac 마이크를 켜 두면 주변 소리가 답으로 받아 적혀 장면이 어긋난다.
+  "$ADB" emu avd hostmicoff >/dev/null || true
   sleep 1
   write_layout
 }
@@ -138,7 +140,8 @@ scene_S7() {
   sleep 1.5
   rec_start S7
   ui_tap "원고 보기"
-  ui_wait "여기서부터 이어서 써 볼까요?" 8
+  # 세로 창에서는 원고 끝의 안내가 화면 밖이라 보이지 않으므로 맨 위 안내를 기다린다.
+  ui_wait "고칠 부분을 길게 눌러 고르면, 말로 고칠 수 있어요" 8
   sleep 1.5
   ui_long "1988년"
   ui_wait "말로 고치기" 5
@@ -184,6 +187,13 @@ scene_S8b() {
 }
 
 # ── 실행 ───────────────────────────────────────────────
+# 중간에 실패해도 녹화를 멈추고 마이크를 되돌린다.
+cleanup() {
+  if [[ "$REC" == "device" ]]; then "$ADB" shell pkill -INT screenrecord >/dev/null 2>&1 || true
+  else "$ADB" emu screenrecord stop >/dev/null 2>&1 || true; fi
+  "$ADB" emu avd hostmicon >/dev/null 2>&1 || true
+}
+trap 'cleanup' ERR INT
 "$ADB" get-state >/dev/null
 for s in "${SCENES[@]}"; do
   if ! declare -F "scene_$s" >/dev/null; then echo "모르는 장면: $s (가능: ${ALL[*]})" >&2; exit 1; fi
@@ -194,6 +204,7 @@ for s in "${SCENES[@]}"; do
   echo "● $s 녹화"
   "scene_$s"
 done
+"$ADB" emu avd hostmicon >/dev/null || true # 다음 시연을 위해 마이크를 되돌린다
 echo
 echo "장면  길이  파일"
 printf '%s\n' "${REPORT[@]}"
