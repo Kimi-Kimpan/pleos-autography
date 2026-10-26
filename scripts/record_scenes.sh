@@ -4,6 +4,8 @@
 #   scripts/record_scenes.sh            모든 장면(S3 S5 S6 S7 S8 S8b)
 #   scripts/record_scenes.sh S6         장면 하나만
 #   scripts/record_scenes.sh S7 S8      여러 장면
+#   REC=device scripts/record_scenes.sh S6   기기 쪽 녹화(adb shell screenrecord, mp4)로. 에뮬레이터 쪽 녹화가
+#                                            호스트 GPU(Metal) 오류로 에뮬레이터를 멈추게 할 때 쓴다.
 #
 # 모든 장면은 tools/demo/demo.sh --reset --layout nav-left --prepare-only로 시작한다
 # (앱 데이터 초기화 → 시연용 서재 ‘첫 차’ 71% → 내비 대체 화면 왼쪽·오토그래피 오른쪽).
@@ -19,6 +21,8 @@ OUT="$ROOT/captures/video"
 TMP="${TMPDIR:-/tmp}/autography-rec"
 mkdir -p "$OUT" "$TMP"
 
+REC="${REC:-emu}"
+EXT=$([[ "$REC" == "device" ]] && echo mp4 || echo webm)
 ALL=(S3 S5 S6 S7 S8 S8b)
 SCENES=("$@")
 [[ ${#SCENES[@]} -eq 0 ]] && SCENES=("${ALL[@]}")
@@ -42,8 +46,15 @@ write_layout() {
 }
 
 rec_start() {
-  rm -f "$TMP/$1.webm"
-  "$ADB" emu screenrecord start --bit-rate 12M --fps 30 "$TMP/$1.webm" >/dev/null
+  if [[ "$REC" == "device" ]]; then
+    "$ADB" shell rm -f "/sdcard/$1.mp4"
+    "$ADB" shell screenrecord --bit-rate 12000000 --time-limit 170 "/sdcard/$1.mp4" &
+    REC_PID=$!
+    sleep 0.8 # 녹화가 시작될 때까지
+  else
+    rm -f "$TMP/$1.webm"
+    "$ADB" emu screenrecord start --bit-rate 12M --fps 30 "$TMP/$1.webm" >/dev/null
+  fi
   REC_T0=$SECONDS
   sleep "$HEAD_HOLD"
 }
@@ -51,11 +62,20 @@ rec_start() {
 rec_stop() {
   sleep "$TAIL_HOLD"
   "$ADB" exec-out screencap -p > "$OUT/$1_last.png"
-  "$ADB" emu screenrecord stop >/dev/null
-  sleep 2 # 파일을 다 쓸 때까지
-  mv -f "$TMP/$1.webm" "$OUT/$1.webm"
-  local dur; dur=$(python3 -I "$ROOT/scripts/webm_duration.py" "$OUT/$1.webm" 2>/dev/null || echo "?")
-  REPORT+=("$1  ${dur}s  captures/video/$1.webm  ($1_last.png)")
+  local dur
+  if [[ "$REC" == "device" ]]; then
+    "$ADB" shell pkill -INT screenrecord || true
+    wait "$REC_PID" 2>/dev/null || true
+    sleep 1
+    "$ADB" pull "/sdcard/$1.mp4" "$OUT/$1.mp4" >/dev/null
+    dur=$((SECONDS - REC_T0))
+  else
+    "$ADB" emu screenrecord stop >/dev/null
+    sleep 2 # 파일을 다 쓸 때까지
+    mv -f "$TMP/$1.webm" "$OUT/$1.webm"
+    dur=$(python3 -I "$ROOT/scripts/webm_duration.py" "$OUT/$1.webm" 2>/dev/null || echo "?")
+  fi
+  REPORT+=("$1  ${dur}s  captures/video/$1.$EXT  ($1_last.png)")
 }
 
 # 인터뷰에서 답이 저장될 때까지(받아 적기) 기다린다. 이전 저장 수보다 늘면 끝.
