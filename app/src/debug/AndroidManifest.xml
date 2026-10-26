@@ -40,6 +40,25 @@
                 android:value="true" />
         </activity>
 
+        <!-- 디버그 빌드 전용: 시연 영상용 ‘내비’ 대체 화면. 독에 따로 뜨도록 태스크를 나눈다 -->
+        <activity
+            android:name=".debug.NavStandInActivity"
+            android:exported="true"
+            android:icon="@mipmap/ic_nav_standin"
+            android:label="내비"
+            android:taskAffinity="com.pleosautography.app.navstandin"
+            android:launchMode="singleTask"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar">
+            <!-- 런처에 있어야 Pleos 독(GNB)이 따로 된 앱으로 보인다 -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <meta-data
+                android:name="distractionOptimized"
+                android:value="true" />
+        </activity>
+
         <!-- 디버그 빌드 전용: 차량 SDK 연결 확인 -->
         <activity
             android:name=".sdkcheck.VehicleCheckActivity"
