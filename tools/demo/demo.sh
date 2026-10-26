@@ -4,6 +4,8 @@
 #   tools/demo/demo.sh            장면마다 Enter를 눌러 진행(발표자가 속도를 정한다)
 #   tools/demo/demo.sh --reset    시작 전에 앱 데이터를 지우고 시연용 서재(‘첫 차’ 5/7편, 71%)부터 시작한다
 #   tools/demo/demo.sh --record   에뮬레이터 화면을 녹화해 captures/demo/에 받는다(최대 3분)
+#   tools/demo/demo.sh --layout nav-left   내비와 나란히 놓을 때 내비를 왼쪽, 오토그래피를 오른쪽에 둔다
+#                                          (기본은 오토그래피 왼쪽·내비 오른쪽)
 #
 # 장면 구성과 오토 대사는 docs/demo-video.md. 오토 목소리와 알림 멜로디는 영상 편집에서 입힌다.
 set -euo pipefail
@@ -12,21 +14,40 @@ ADB="${ADB:-$HOME/Library/Android/sdk/platform-tools/adb}"
 PKG="com.pleosautography.app"
 RECORD=false
 RESET=false
-for arg in "$@"; do
-  case "$arg" in
+LAYOUT="app-left"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
     --record) RECORD=true ;;
     --reset) RESET=true ;;
-    *) echo "알 수 없는 옵션: $arg" >&2; exit 1 ;;
+    --layout)
+      shift
+      case "${1:-}" in
+        nav-left|app-left) LAYOUT="$1" ;;
+        *) echo "--layout 값은 nav-left 또는 app-left: ${1:-}" >&2; exit 1 ;;
+      esac
+      ;;
+    *) echo "알 수 없는 옵션: $1" >&2; exit 1 ;;
   esac
+  shift
 done
 
 ev() { "$ADB" shell am broadcast -a "$PKG.DEMO_EVENT" -p "$PKG" --es event "$1" >/dev/null; }
 open_app() { "$ADB" shell am start -n "$PKG/.MainActivity" "$@" >/dev/null; }
 # 앱 영역 오른쪽 끝 ⋮ 핸들을 끌어 내비와 나란히 놓는다(2560×1440 에뮬레이터 기준 좌표).
+# 핸들을 끌면 지금 앞에 있는 앱이 왼쪽, 바로 전에 쓴 앱이 오른쪽에 온다.
+#   app-left(기본): 내비 → 오토그래피 순으로 열고 끈다 → 오토그래피 왼쪽, 내비 오른쪽
+#   nav-left:       오토그래피 → 내비 순으로 열고 끈다 → 내비 왼쪽, 오토그래피 오른쪽
+NAVI="ai.umos.maps.android.navigation.app/.MainActivity"
 split_with_navi() {
-  "$ADB" shell am start -n ai.umos.maps.android.navigation.app/.MainActivity >/dev/null
-  sleep 2
-  open_app
+  if [[ "$LAYOUT" == "nav-left" ]]; then
+    open_app
+    sleep 2
+    "$ADB" shell am start -n "$NAVI" >/dev/null
+  else
+    "$ADB" shell am start -n "$NAVI" >/dev/null
+    sleep 2
+    open_app
+  fi
   sleep 1
   "$ADB" shell input swipe 2547 717 1700 717 600
 }
