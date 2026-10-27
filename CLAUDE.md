@@ -126,7 +126,7 @@
   - git `user.name`과 커밋 작성자는 팀명이나 가명으로 설정한다.
   - README와 코드 주석에 실명, 연락처, 이메일을 쓰지 않는다.
 - API 키와 비밀값은 `local.properties` 또는 환경 변수에만 둔다. 절대 커밋하지 않는다.
-- APK는 GitHub Releases에 올린다. 저장소에는 빌드 산출물을 커밋하지 않는다.
+- 제출용 서명 APK만 `apk/StudioKimpan_PleosAutography_release.apk`로 커밋한다(.gitignore 예외). 그 밖의 빌드 산출물은 커밋하지 않는다. 서명 키스토어는 저장소 밖(`~/.android/studiokimpan-release.jks`), 비밀번호는 local.properties에만.
 - `design/reference/`의 Pleos Connect 화면 캡처는 참고용이다. 공개 저장소에 올릴지는 사용자에게 먼저 확인한다.
 
 ## 작업 방식

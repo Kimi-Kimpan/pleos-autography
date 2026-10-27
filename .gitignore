@@ -33,3 +33,15 @@ secrets.properties
 
 # 시연 영상용 내비 대체 그림(video-kit에서 복사, 저장소에 넣지 않는다)
 app/src/debug/assets/nav/
+
+# 영상 결과물·편집 소스(저장소에 넣지 않는다)
+*.mp4
+*.mov
+*.webm
+video-kit/
+
+# 서명 정보(키스토어 경로·비밀번호는 local.properties에만)
+keystore.properties
+
+# 제출용 release APK만 예외로 저장소에 둔다
+!apk/StudioKimpan_PleosAutography_release.apk

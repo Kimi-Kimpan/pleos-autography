@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -20,8 +22,24 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // 제출용 release 서명: 키스토어 경로·비밀번호는 local.properties(release.storeFile 등)에만 둔다.
+    val signing = Properties().apply {
+        rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+    }
+    signingConfigs {
+        if (signing.getProperty("release.storeFile") != null) {
+            create("release") {
+                storeFile = file(signing.getProperty("release.storeFile"))
+                storePassword = signing.getProperty("release.storePassword")
+                keyAlias = signing.getProperty("release.keyAlias")
+                keyPassword = signing.getProperty("release.keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            signingConfigs.findByName("release")?.let { signingConfig = it }
             optimization {
                 enable = true
                 packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
