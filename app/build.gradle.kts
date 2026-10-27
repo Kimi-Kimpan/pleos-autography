@@ -40,9 +40,10 @@ android {
     buildTypes {
         release {
             signingConfigs.findByName("release")?.let { signingConfig = it }
+            // 앱 전체를 한 번에 줄인다. 일부 패키지(androidx·kotlin)만 줄이면 앱 클래스가 패키지 전용이 된
+            // kotlin 클래스를 상속하게 되어 실행하자마자 IllegalAccessError로 멈췄다.
             optimization {
                 enable = true
-                packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
             }
         }
     }
