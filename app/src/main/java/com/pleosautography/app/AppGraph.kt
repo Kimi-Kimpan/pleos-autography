@@ -18,6 +18,7 @@ import com.pleosautography.app.data.vehicle.CarApiVehicleState
 import com.pleosautography.app.data.vehicle.DemoVehicleState
 import com.pleosautography.app.domain.DriveMode
 import com.pleosautography.app.domain.DriveModeRule
+import com.pleosautography.app.domain.demo.DemoEvent
 import com.pleosautography.app.domain.demo.DemoEvents
 import com.pleosautography.app.domain.interview.InterviewSession
 import com.pleosautography.app.domain.interview.ScriptedFollowUps
@@ -89,6 +90,22 @@ class AppGraph private constructor(context: Context) {
     fun launch(block: suspend () -> Unit) {
         scope.launch { block() }
     }
+
+    /** 시연 모드(환경설정, release에도 있다). */
+    val demoMode: StateFlow<Boolean> = repository.library
+        .map { it?.settings?.demoMode == true }
+        .stateIn(scope, SharingStarted.Eagerly, false)
+
+    /** 시연 모드를 켜고 끈다. 끄면 데모 값을 풀고 실제 차량 값으로 돌아간다(만든 책은 그대로 둔다). */
+    fun setDemoMode(on: Boolean) {
+        scope.launch {
+            repository.updateSettings { it.copy(demoMode = on) }
+            if (!on) demoEvents.send(DemoEvent.REAL_VEHICLE)
+        }
+    }
+
+    /** 시연 모드의 ‘샘플 자서전 불러오기’. 새로 만들었으면 true, 이미 있던 책으로 바꿨으면 false. */
+    suspend fun loadSampleBook(): Boolean = repository.loadSampleBook(demoScript.seed)
 
     /** 시연용 서재(디버그 빌드만): 예시 답변이 든 ‘김○○의 자서전’(1장 완성, ‘첫 차’ 5편)과 다른 책 한 권. */
     suspend fun setupDemoLibrary() {

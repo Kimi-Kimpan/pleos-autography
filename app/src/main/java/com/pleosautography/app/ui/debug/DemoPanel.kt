@@ -22,13 +22,20 @@ import com.pleosautography.app.ui.theme.px
 
 private val PanelTitle = TextSpec(22f, FontWeight.ExtraBold)
 private val PanelButton = TextSpec(22f, FontWeight.Bold)
+private val PanelNote = TextSpec(20f, FontWeight.SemiBold)
 
 /**
- * 디버그 빌드 전용 데모 패널. 책등의 ‘Autography’를 길게 누르면 열린다.
+ * 데모 패널. 책등의 ‘Autography’를 길게 누르면 열린다(디버그 빌드, 또는 release의 시연 모드). 주행 중에도 열린다.
  * 시연 영상에는 보이지 않게, 같은 이벤트를 adb로도 보낼 수 있다(DemoEvent 참고).
  */
 @Composable
-fun DemoPanel(onEvent: (DemoEvent) -> Unit, onClose: () -> Unit, modifier: Modifier = Modifier) {
+fun DemoPanel(
+    onEvent: (DemoEvent) -> Unit,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier,
+    events: List<DemoEvent> = DemoEvent.entries,
+    note: String? = null,
+) {
     val shape = RoundedCornerShape(24.px)
     Column(
         modifier = modifier
@@ -41,10 +48,11 @@ fun DemoPanel(onEvent: (DemoEvent) -> Unit, onClose: () -> Unit, modifier: Modif
         verticalArrangement = Arrangement.spacedBy(12.px),
     ) {
         Row(Modifier.fillMaxWidth()) {
-            BasicText("데모 패널 (디버그)", style = PanelTitle.style(), modifier = Modifier.weight(1f))
+            BasicText(if (note != null) "데모 패널" else "데모 패널 (디버그)", style = PanelTitle.style(), modifier = Modifier.weight(1f))
             PillButton("닫기", onClose, heightPx = 52f, horizontalPaddingPx = 20f, textSpec = PanelButton)
         }
-        DemoEvent.entries.chunked(2).forEach { row ->
+        note?.let { BasicText(it, style = PanelNote.style(AutoColors.InkSecondary)) }
+        events.chunked(2).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(12.px)) {
                 row.forEach { event ->
                     PillButton(

@@ -194,6 +194,9 @@
   | `fix` | “방금 거기 고치자. 1988년이 아니라 1987년이었어.”(원고 듣기에서 정정) |
   | `setup` | 시연용 서재 만들기(책이 없을 때만). 앱 실행 때 `--es setup demo`로도 |
 
+- **시연 모드**(release에도 있다, 심사위원용): 환경설정 맨 아래 스위치(기본 꺼짐, 정차 중에만). 켜면 ‘샘플 자서전 불러오기’(시연용 책을 더해 지금 책으로, 이미 있으면 전환)와
+  데모 패널(책등 ‘Autography’ 길게 누르기, 주행 중에도, release는 drive/park/real·whatsup·answer·stop·finish·congestion15·arrival10만)을 쓴다.
+  끄면 real로 데모 값을 풀고 패널을 닫는다(책은 남김). 꺼져 있으면 예전과 같고, adb 데모 리시버는 디버그 전용이다. `settings.demoMode`(Room v4).
 - **시연 진행 스크립트** `tools/demo/demo.sh` (약 90초 7장면, 장면·오토 대사: `docs/demo-video.md`)
   - 장면마다 Enter로 진행, `--record` 에뮬레이터 화면 녹화(최대 3분, `captures/demo/`로 받음),
     `--reset` 앱 데이터를 지우고 시연용 서재(‘김○○의 자서전’, 1장 완료, ‘첫 차’ 5/7편 = 71%)부터.
@@ -206,7 +209,7 @@
 - 주행/정차: `domain/DriveModeRule`(P단이고 멈췄을 때만 정차, 기어를 모르거나 주행 제한이면 주행). 출발하면 주행 홈으로, P단이 되면 주행 전용 화면(주행 홈·제안·마무리)을 닫고 Main으로 간다. 인터뷰는 정차 중에도 이어 간다.
 - 상황 트리거: `domain/trigger/TriggerEngine`(순수 Kotlin, 단위 테스트). 우선순위는 도착 10분 전 마무리 > 복잡 구간 미루기 > 미룬 대화 다시 제안 > 휴식 권유(연속 2시간) > 정체(20km/h 미만)·직진 15분 제안. 제안 뒤 20분은 다시 제안하지 않고, 인터뷰 중에는 제안하지 않는다. 제안 전에는 알림 멜로디(`data/audio/ChimePlayer`, 코드로 만든 두 음)를 먼저 울린다.
 - 경로 안내: 지금은 `FakeNaviState`. Pleos NaviHelper 3.0.5는 앱 등록 없이 쓸 수 있고 `DrivingInfo.destination.duration`(남은 시간)·`TBTInfo(type, distance)`(다음 회전)·`onNavigationStatus`가 있다. 단위(초/분, 미터)는 에뮬레이터에서 확인한 뒤 마일스톤 8에서 구현체를 붙인다.
-- 저장: Room v3 `question`·`book`·`settings`·`answer`(bookId)·`chapter_state`(bookId+chapterNumber)(`data/db`, 스키마 `app/schemas`, v2→v3 이전은 기존 답변을 1번 책으로 옮긴다).
+- 저장: Room v4(v4는 settings.demoMode) `question`·`book`·`settings`·`answer`(bookId)·`chapter_state`(bookId+chapterNumber)(`data/db`, 스키마 `app/schemas`, v2→v3 이전은 기존 답변을 1번 책으로 옮긴다).
   - `AutographyRepository.library`(설정+책 목록)가 지금 쓰는 책·부르는 이름·지금 챕터(`book.currentChapter`)의 원천이다. 화면은 `LocalBookState`.
   - 첫 실행: 책이 없으면(첫 설치·마지막 책 삭제) 정차 중 Onboarding으로 시작. ‘시작하기’에서 `createBook`. 입력값은 `OnboardingDraft`.
   - 질문 은행 `assets/questions/01~06.json`. 진행률 = 답한 질문 수 / 질문 수.
@@ -237,8 +240,8 @@
 
 ## 남은 작업 (10/28 제출 목표)
 
-1. 영상 촬영: `tools/demo/demo.sh --reset --record`, 대본은 `docs/demo-video.md`. 오토 목소리·멜로디는 편집에서.
-2. 마일스톤 8: Pleos SDK 구현체(TTS/STT 승인 뒤), NaviHelper 단위 확인, APK 릴리스(GitHub Releases), README.
+- ~~영상 촬영~~ 완료(10/26 장면 녹화, 오토 목소리는 넣지 않고 자막). 제출용 release APK·README도 완료.
+1. 마일스톤 8: Pleos SDK 구현체(TTS/STT 승인 뒤), NaviHelper 단위 확인, APK 릴리스(GitHub Releases), README.
 
 ## 마일스톤 (권장 순서)
 

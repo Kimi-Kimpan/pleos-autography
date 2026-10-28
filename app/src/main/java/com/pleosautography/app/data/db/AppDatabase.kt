@@ -45,6 +45,7 @@ data class BookEntity(
 /**
  * 앱 설정(한 줄). 첫 실행을 마치면 생긴다.
  * @param ownerName 첫 실행에서 적은 이름(제목 추천에 쓴다). [callName]은 오토가 부르는 이름.
+ * @param demoMode 시연 모드(심사·시연용, release에도 있다): 샘플 자서전과 데모 패널을 쓴다.
  */
 @Entity(tableName = "settings")
 data class SettingsEntity(
@@ -55,6 +56,7 @@ data class SettingsEntity(
     val chimeOn: Boolean = true,
     val radioPublic: Boolean = false,
     val activeBookId: Long? = null,
+    @ColumnInfo(defaultValue = "0") val demoMode: Boolean = false,
 ) {
     companion object {
         const val SINGLE_ROW = 1
@@ -190,7 +192,7 @@ interface ChapterStateDao {
         AnswerEntity::class,
         ChapterStateEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -203,13 +205,20 @@ abstract class AppDatabase : RoomDatabase() {
     companion object {
         fun create(context: Context): AppDatabase =
             Room.databaseBuilder(context, AppDatabase::class.java, "autography.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build()
 
         /** 1 → 2: 챕터 완성 기록 테이블. 기존 답변은 그대로 둔다. */
         private val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("CREATE TABLE IF NOT EXISTS `chapter_state` (`chapterNumber` INTEGER NOT NULL, `completedAt` INTEGER NOT NULL, PRIMARY KEY(`chapterNumber`))")
+            }
+        }
+
+        /** 3 → 4: 시연 모드 설정. */
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `settings` ADD COLUMN `demoMode` INTEGER NOT NULL DEFAULT 0")
             }
         }
 

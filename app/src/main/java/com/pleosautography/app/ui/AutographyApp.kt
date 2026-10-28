@@ -121,7 +121,8 @@ data class LaunchRequest(val id: Long = 0, val screen: Screen? = null, val demoO
  * - 가로 전체 창에서 상태 칩은 창 오른쪽 위 한 곳에만 그린다(각 화면의 칩은 숨긴다).
  *
  * @param driveMode 차량 상태로 정한 주행/정차(AppGraph.driveMode).
- * @param onDemoEvent 디버그 빌드에서만 준다. 책등의 ‘Autography’를 길게 누르면 데모 패널이 열린다.
+ * @param onDemoEvent 디버그 빌드, 또는 release에서 시연 모드를 켰을 때만 준다. 책등의 ‘Autography’를 길게 누르면 데모 패널이 열린다.
+ * @param demoEvents 데모 패널에 보일 이벤트. [demoModeNote]면 패널 위에 시연 모드 안내를 쓴다.
  * @param services 상황 트리거·인터뷰·음성 입력·라디오(AppGraph). 결정과 음성 명령에 따라 화면을 바꾼다.
  */
 @Composable
@@ -130,6 +131,8 @@ fun AutographyApp(
     launch: LaunchRequest = LaunchRequest(),
     onDemoEvent: ((DemoEvent) -> Unit)? = null,
     services: AppServices? = null,
+    demoEvents: List<DemoEvent> = DemoEvent.entries,
+    demoModeNote: Boolean = false,
 ) {
     // 시작 화면은 처음 스택에 바로 넣는다. 창 크기 변경으로 Activity가 다시 만들어져도 저장된 스택을 쓴다.
     val navigator = rememberAppNavigator(launch.screen)
@@ -150,6 +153,8 @@ fun AutographyApp(
     // 주행 상태가 바뀌거나 맞지 않는 화면이 열리면 그 상태의 홈으로 보낸다.
     LaunchedEffect(driveMode, navigator.current) { navigator.syncWithDriveMode(driveMode) }
     var demoPanelOpen by remember { mutableStateOf(false) }
+    // 시연 모드를 끄면 패널도 닫는다.
+    LaunchedEffect(onDemoEvent == null) { if (onDemoEvent == null) demoPanelOpen = false }
 
     val situation = services?.situation
     var pendingIntro by remember { mutableStateOf<String?>(null) }
@@ -341,6 +346,8 @@ fun AutographyApp(
                     DemoPanel(
                         onEvent = onDemoEvent,
                         onClose = { demoPanelOpen = false },
+                        events = demoEvents,
+                        note = if (demoModeNote) "시연 모드 · 실제 차량 값 대신 데모 값" else null,
                         modifier = Modifier.align(Alignment.BottomStart),
                     )
                 }

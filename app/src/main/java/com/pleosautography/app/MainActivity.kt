@@ -84,13 +84,19 @@ class MainActivity : ComponentActivity() {
             createBook = graph::createBook,
             launch = graph::launch,
             demoFixSentence = graph.demoScript.fix,
+            setDemoMode = graph::setDemoMode,
+            loadSampleBook = graph::loadSampleBook,
         )
         setContent {
             val driveMode by graph.driveMode.collectAsState()
+            val demoMode by graph.demoMode.collectAsState()
             AutographyApp(
                 driveMode = driveMode,
                 launch = launch,
-                onDemoEvent = if (debuggable) graph.demoEvents::send else null,
+                // 데모 패널: 디버그 빌드는 늘, release는 환경설정의 시연 모드를 켰을 때만. adb 리시버는 디버그 전용이다.
+                onDemoEvent = if (debuggable || demoMode) graph.demoEvents::send else null,
+                demoEvents = if (debuggable) DemoEvent.entries else RELEASE_DEMO_EVENTS,
+                demoModeNote = demoMode,
                 services = services,
             )
         }
@@ -120,3 +126,16 @@ class MainActivity : ComponentActivity() {
         return LaunchRequest(id = System.nanoTime(), screen = screen, demoOptions = options)
     }
 }
+
+/** release 시연 모드의 데모 패널에 보일 이벤트. */
+private val RELEASE_DEMO_EVENTS = listOf(
+    DemoEvent.DRIVE,
+    DemoEvent.PARK,
+    DemoEvent.REAL_VEHICLE,
+    DemoEvent.SAY_WHATS_UP,
+    DemoEvent.ANSWER_DONE,
+    DemoEvent.SAY_STOP,
+    DemoEvent.FINISH,
+    DemoEvent.CONGESTION_15,
+    DemoEvent.ARRIVAL_10,
+)

@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.StateFlow
  * @param readAloud 원고 한 문장을 오토 목소리로 읽는다(시연은 읽는 시간만 기다린다).
  * @param createBook 첫 실행·새 자서전을 마치면 책을 만든다(제목, 이름, 부르는 이름, 첫 챕터).
  * @param launch 화면이 닫혀도 끝까지 해야 하는 저장 작업을 앱 범위에서 돌린다.
+ * @param setDemoMode 시연 모드 켜고 끄기. [loadSampleBook]은 시연용 샘플 자서전을 불러온다(새로 만들었으면 true).
  * @param demoFixSentence 원고 듣기의 마이크를 누르면 말한 것으로 칠 준비된 정정 문장(시연용).
  */
 class AppServices(
@@ -46,6 +47,8 @@ class AppServices(
     val createBook: suspend (title: String, ownerName: String, callName: String, firstChapter: Int) -> Unit,
     val launch: (suspend () -> Unit) -> Unit,
     val demoFixSentence: String,
+    val setDemoMode: (Boolean) -> Unit = {},
+    val loadSampleBook: suspend () -> Boolean = { false },
 )
 
 /** 화면 안쪽에서 앱 서비스를 쓸 때(없으면 null: 미리보기). */

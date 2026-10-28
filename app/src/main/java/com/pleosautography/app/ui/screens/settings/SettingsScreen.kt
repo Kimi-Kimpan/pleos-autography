@@ -210,8 +210,45 @@ fun SettingsScreen(
                     value = if (public) "공개 중" else "나중에",
                     checked = public,
                     onToggle = { on -> run { repository?.updateSettings { it.copy(radioPublic = on) } } },
-                    last = true,
                 )
+
+                // 시연 모드: 심사·시연용. 샘플 자서전과 데모 패널(책등 ‘Autography’ 길게 누르기)을 쓴다. 환경설정은 정차 중에만 열린다.
+                SectionLabel("시연", topPx = 34f)
+                val demoMode = settings?.demoMode ?: false
+                Option(
+                    "시연 모드",
+                    value = if (demoMode) "데모 값 사용 중" else "꺼짐",
+                    checked = demoMode,
+                    onToggle = { on ->
+                        services?.setDemoMode?.invoke(on)
+                        notice.show(if (on) "시연 모드를 켰어요. 책등의 ‘Autography’를 길게 누르면 데모 패널이 열려요" else "시연 모드를 껐어요. 실제 차량 값으로 돌아갔어요")
+                    },
+                    last = !demoMode,
+                )
+                if (demoMode) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(top = 18.px, bottom = 32.px),
+                        verticalArrangement = Arrangement.spacedBy(14.px),
+                    ) {
+                        PillButton(
+                            text = "샘플 자서전 불러오기",
+                            onClick = {
+                                run {
+                                    val created = services?.loadSampleBook?.invoke() ?: false
+                                    notice.show(if (created) "샘플 자서전을 불러왔어요 · ‘첫 차’ 71%" else "샘플 자서전으로 바꿨어요")
+                                }
+                            },
+                            icon = AutoIcons.Book,
+                            heightPx = 84f,
+                            iconSizePx = 28f,
+                            textSpec = Action,
+                        )
+                        BasicText(
+                            "책등의 ‘Autography’를 길게 누르면 데모 패널이 열려요(주행·정차, “오토야, 뭐해?” 등). 시연 모드를 꺼도 불러온 책은 남아요.",
+                            style = BookMeta.style(AutoColors.InkSecondary),
+                        )
+                    }
+                }
             }
         }
         NoticeHost(notice, Modifier.align(Alignment.BottomCenter))

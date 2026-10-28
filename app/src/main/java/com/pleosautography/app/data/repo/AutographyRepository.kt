@@ -150,6 +150,25 @@ class AutographyRepository(private val db: AppDatabase, private val assets: Asse
         }
     }
 
+    /**
+     * 시연 모드의 ‘샘플 자서전 불러오기’: 시연용 책(1장 완성, ‘첫 차’ 5/7편)을 새 책으로 더하고 지금 책으로 둔다.
+     * 이미 불러온 샘플 책이 있으면 다시 만들지 않고 그 책으로 바꾼다. 지운 책·다른 책은 건드리지 않는다.
+     * @return 샘플 책을 새로 만들었으면 true.
+     */
+    suspend fun loadSampleBook(seed: Map<String, String>): Boolean = withContext(Dispatchers.IO) {
+        syncQuestionsIfEmpty()
+        db.withTransaction {
+            val existing = db.books().all().firstOrNull { it.title == DEMO_TITLE && db.answers().book(it.id).any { a -> a.questionId in seed } }
+            val id = existing?.id ?: run {
+                val now = System.currentTimeMillis()
+                db.books().insert(BookEntity(title = DEMO_TITLE, ownerCallName = DEMO_CALL_NAME, createdAt = now, currentChapter = 2)).also { seedAnswers(it, seed, now) }
+            }
+            val settings = db.settings().get()
+            db.settings().upsert(settings?.copy(activeBookId = id) ?: SettingsEntity(ownerName = DEMO_OWNER, callName = DEMO_CALL_NAME, activeBookId = id))
+            existing == null
+        }
+    }
+
     /** 예시 답변을 넣고, 질문을 다 채운 챕터는 완성으로 기록한다. */
     private suspend fun seedAnswers(book: Long, seed: Map<String, String>, now: Long) {
         seed.entries.forEachIndexed { index, (questionId, text) ->
